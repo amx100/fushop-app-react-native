@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { Link, Stack } from 'expo-router';
 import { format } from 'date-fns';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../../lib/supabase';
 
 import { Tables } from '../../../types/database.types';
 import { getMyOrders } from '../../../api/api';
@@ -20,7 +22,9 @@ const renderItem: ListRenderItem<Tables<'order'>> = ({ item }) => (
       <View style={styles.orderContent}>
         <View style={styles.orderDetailsContainer}>
           <Text style={styles.orderItem}>{item.slug}</Text>
-          <Text style={styles.orderDetails}>{item.description}</Text>
+          <Text style={styles.orderDetails}>
+            Total Price: ${item.totalPrice.toFixed(2)}
+          </Text>
           <Text style={styles.orderDate}>
             {format(new Date(item.created_at), 'MMM dd, yyyy')}
           </Text>
@@ -37,7 +41,43 @@ const renderItem: ListRenderItem<Tables<'order'>> = ({ item }) => (
 
 const Orders = () => {
   const { session } = useAuth();
-  const { data: orders, error, isLoading } = getMyOrders();
+  const [orders, setOrders] = useState<Tables<'order'>[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setIsLoading(true);
+        
+        if (!session?.user?.id) return;
+
+        const userType = session.user.user_metadata?.type;
+        
+        let query = supabase
+          .from('order')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        // If not admin, only fetch user's orders
+        if (userType !== 'ADMIN') {
+          query = query.eq('user', session.user.id);
+        }
+
+        const { data, error: err } = await query;
+
+        if (err) throw err;
+        
+        setOrders(data);
+      } catch (err) {
+        setError(err as Error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [session]);
 
   if (!session) {
     return (
@@ -71,10 +111,7 @@ const Orders = () => {
     );
   }
 
-  // Filter orders for the current user
-  const userOrders = orders?.filter(order => order.user === session.user.id) || [];
-
-  if (userOrders.length === 0) {
+  if (!orders || orders.length === 0) {
     return (
       <Text
         style={{
@@ -93,7 +130,7 @@ const Orders = () => {
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'Orders' }} />
       <FlatList
-        data={userOrders}
+        data={orders}
         keyExtractor={item => item.id.toString()}
         renderItem={renderItem}
       />
