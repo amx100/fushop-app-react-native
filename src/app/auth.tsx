@@ -62,6 +62,34 @@ export default function Auth() {
     }
   };
 
+  const signInAsAdmin = async (data: zod.infer<typeof authSchema>) => {
+    const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword(data);
+
+    if (signInError) {
+      alert(signInError.message);
+      return;
+    }
+
+    // Check if user is admin
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('type')
+      .eq('id', signInData.user.id)
+      .single();
+
+    if (userError || userData?.type !== 'ADMIN') {
+      alert('Unauthorized: Admin access only');
+      await supabase.auth.signOut();
+      return;
+    }
+
+    Toast.show('Signed in as admin successfully', {
+      type: 'success',
+      placement: 'top',
+      duration: 1500,
+    });
+  };
+
   return (
     <ImageBackground
       source={{
@@ -129,6 +157,15 @@ export default function Auth() {
         >
           <Text style={styles.buttonText}>Sign In</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, styles.adminButton]}
+          onPress={handleSubmit(signInAsAdmin)}
+          disabled={formState.isSubmitting}
+        >
+          <Text style={styles.buttonText}>Sign In as Admin</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.button, styles.signUpButton]}
           onPress={handleSubmit(signUp)}
@@ -206,5 +243,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'left',
     width: '90%',
+  },
+  adminButton: {
+    backgroundColor: '#d32f2f',
   },
 });
