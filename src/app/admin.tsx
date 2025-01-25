@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image } from 'react-native';
 import { useAuth } from '../providers/auth-provider';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -7,6 +7,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Toast } from 'react-native-toast-notifications';
 import * as zod from 'zod';
 import { authSchema } from '../lib/auth';
+import * as ImagePicker from 'expo-image-picker';
+import { MediaTypeOptions } from 'expo-image-picker';
+import RemoteImage from '../components/RemoteImage';
+import * as FileSystem from 'expo-file-system';
+import { randomUUID } from 'expo-crypto';
+import { decode } from 'base64-arraybuffer';
 
 type Product = {
   id: number;
@@ -56,25 +62,22 @@ export default function AdminDashboard() {
         router.replace('/auth');
         return;
       }
-
+  
       const { data, error } = await supabase
         .from('users')
         .select('type')
         .eq('id', user.id)
         .single();
-
+  
       if (error || data?.type !== 'ADMIN') {
-        Toast.show('Unauthorized: Admin access only', {
-          type: 'error',
-          placement: 'top',
-          duration: 1500,
-        });
+        Toast.show('Unauthorized: Admin access only', { type: 'error', placement: 'top', duration: 1500 });
         router.replace('/');
       }
     };
-
+  
     checkAdminAccess();
   }, [user]);
+  
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -172,6 +175,63 @@ export default function AdminDashboard() {
     }
   };
 
+  const uploadImage = async (uri: string) => {
+    if (!uri?.startsWith('file://')) {
+      return null;
+    }
+
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: 'base64',
+      });
+      const filePath = `${randomUUID()}.png`;
+      const contentType = 'image/png';
+
+      const { data, error } = await supabase.storage
+        .from('app-images')
+        .upload(filePath, decode(base64), { contentType });
+
+      if (error) throw error;
+
+      if (data) {
+        const { data: { publicUrl } } = supabase.storage
+          .from('app-images')
+          .getPublicUrl(data.path);
+        return publicUrl;
+      }
+    } catch (error) {
+      console.log('Error uploading image:', error);
+      return null;
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Camera roll permissions are required!');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        const uploadedUrl = await uploadImage(result.assets[0].uri);
+        if (uploadedUrl) {
+          setFormData(prev => ({ ...prev, heroImage: uploadedUrl }));
+          Toast.show('Image uploaded successfully', { type: 'success' });
+        }
+      }
+    } catch (error: any) {
+      alert('Error picking image: ' + error.message);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Admin Dashboard</Text>
@@ -244,12 +304,24 @@ export default function AdminDashboard() {
             keyboardType="numeric"
           />
           
-          <TextInput
-            style={styles.input}
-            placeholder="Hero Image URL"
-            value={formData.heroImage}
-            onChangeText={(text) => setFormData({ ...formData, heroImage: text })}
-          />
+          <View style={styles.imageUploadContainer}>
+            {formData.heroImage ? (
+              <RemoteImage 
+                path={formData.heroImage}
+                fallback="https://placehold.co/200x150"
+                style={styles.previewImage} 
+              />
+            ) : null}
+            
+            <TouchableOpacity
+              style={styles.imageUploadButton}
+              onPress={pickImage}
+            >
+              <Text style={styles.buttonText}>
+                {formData.heroImage ? 'Change Image' : 'Upload Image'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           
           <TextInput
             style={styles.input}
@@ -400,5 +472,23 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#4CAF50',
+  },
+  imageUploadContainer: {
+    top: 50,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  previewImage: {
+    width: 200,
+    height: 150,
+    marginBottom: 10,
+    borderRadius: 8,
+  },
+  imageUploadButton: {
+    backgroundColor: '#2196F3',
+    padding: 12,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
   },
 }); 
