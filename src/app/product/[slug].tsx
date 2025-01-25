@@ -46,7 +46,7 @@ const ProductDetails = () => {
   };
 
   const decreaseQuantity = () => {
-    if (quantity > 1) {
+    if (quantity > 0) {
       setQuantity(prev => prev - 1);
       decrementItem(product.id);
     }
@@ -101,11 +101,10 @@ const ProductDetails = () => {
           <TouchableOpacity
             style={styles.quantityButton}
             onPress={decreaseQuantity}
-            disabled={quantity <= 1}
+            disabled={quantity <= 0} // Onemogućiti dugme kad je količina 0
           >
             <Text style={styles.quantityButtonText}>-</Text>
           </TouchableOpacity>
-
           <Text style={styles.quantity}>{quantity}</Text>
 
           <TouchableOpacity

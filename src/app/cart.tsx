@@ -70,7 +70,7 @@ const CartItem = ({
 
 export default function Cart() {
   const {
-    items,
+    items = [], // Provide a default empty array
     removeItem,
     incrementItem,
     decrementItem,

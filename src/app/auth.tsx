@@ -9,10 +9,11 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import * as zod from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { Toast } from 'react-native-toast-notifications';
 import { useAuth } from '../providers/auth-provider';
+import { useEffect } from 'react';
 
 const authSchema = zod.object({
   email: zod.string().email({ message: 'Invalid email address' }),
@@ -23,9 +24,7 @@ const authSchema = zod.object({
 
 export default function Auth() {
   const { session } = useAuth();
-
-  if (session) return <Redirect href='/' />;
-
+  const router = useRouter();
   const { control, handleSubmit, formState } = useForm({
     resolver: zodResolver(authSchema),
     defaultValues: {
@@ -35,17 +34,27 @@ export default function Auth() {
   });
 
   const signIn = async (data: zod.infer<typeof authSchema>) => {
-    const { error } = await supabase.auth.signInWithPassword(data);
+    const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword(data);
 
-    if (error) {
-      alert(error.message);
-    } else {
-      Toast.show('Signed in successfully', {
-        type: 'success',
-        placement: 'top',
-        duration: 1500,
-      });
+    if (signInError) {
+      alert(signInError.message);
+      return;
     }
+
+    // Check user type but always redirect to shop
+    const { data: userData } = await supabase
+      .from('users')
+      .select('type')
+      .eq('id', signInData.user.id)
+      .single();
+
+    Toast.show('Signed in successfully', {
+      type: 'success',
+      placement: 'top',
+      duration: 1500,
+    });
+    
+    router.replace('/'); // Always go to shop for regular sign in
   };
 
   const signUp = async (data: zod.infer<typeof authSchema>) => {
@@ -61,6 +70,40 @@ export default function Auth() {
       });
     }
   };
+
+  const signInAsAdmin = async (data: zod.infer<typeof authSchema>) => {
+    const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword(data);
+
+    if (signInError) {
+      alert(signInError.message);
+      return;
+    }
+
+    // Check if user is admin
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('type')
+      .eq('id', signInData.user.id)
+      .single();
+
+    if (userError || userData?.type !== 'ADMIN') {
+      alert('Unauthorized: Admin access only');
+      await supabase.auth.signOut();
+      return;
+    }
+
+    Toast.show('Signed in as admin successfully', {
+      type: 'success',
+      placement: 'top',
+      duration: 1500,
+    });
+    
+    router.replace('/admin'); // Always go to admin page for admin sign in
+  };
+
+  if (session) {
+    return null;
+  }
 
   return (
     <ImageBackground
@@ -129,6 +172,15 @@ export default function Auth() {
         >
           <Text style={styles.buttonText}>Sign In</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, styles.adminButton]}
+          onPress={handleSubmit(signInAsAdmin)}
+          disabled={formState.isSubmitting}
+        >
+          <Text style={styles.buttonText}>Sign In as Admin</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.button, styles.signUpButton]}
           onPress={handleSubmit(signUp)}
@@ -206,5 +258,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'left',
     width: '90%',
+  },
+  adminButton: {
+    backgroundColor: '#d32f2f',
   },
 });
