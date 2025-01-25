@@ -33,38 +33,28 @@ export default function Auth() {
     },
   });
 
-  useEffect(() => {
-    const checkUserType = async () => {
-      if (session?.user) {
-        const { data } = await supabase
-          .from('users')
-          .select('type')
-          .eq('id', session.user.id)
-          .single();
-
-        if (data?.type === 'ADMIN') {
-          router.replace('/admin');
-        } else {
-          router.replace('/');
-        }
-      }
-    };
-
-    checkUserType();
-  }, [session]);
-
   const signIn = async (data: zod.infer<typeof authSchema>) => {
-    const { error } = await supabase.auth.signInWithPassword(data);
+    const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword(data);
 
-    if (error) {
-      alert(error.message);
-    } else {
-      Toast.show('Signed in successfully', {
-        type: 'success',
-        placement: 'top',
-        duration: 1500,
-      });
+    if (signInError) {
+      alert(signInError.message);
+      return;
     }
+
+    // Check user type but always redirect to shop
+    const { data: userData } = await supabase
+      .from('users')
+      .select('type')
+      .eq('id', signInData.user.id)
+      .single();
+
+    Toast.show('Signed in successfully', {
+      type: 'success',
+      placement: 'top',
+      duration: 1500,
+    });
+    
+    router.replace('/'); // Always go to shop for regular sign in
   };
 
   const signUp = async (data: zod.infer<typeof authSchema>) => {
@@ -108,7 +98,7 @@ export default function Auth() {
       duration: 1500,
     });
     
-    router.replace('/admin');
+    router.replace('/admin'); // Always go to admin page for admin sign in
   };
 
   if (session) {
