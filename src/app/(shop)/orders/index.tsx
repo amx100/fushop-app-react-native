@@ -47,14 +47,12 @@ const Orders = () => {
 
   const fetchOrders = useCallback(async () => {
     try {
-      console.log('Fetching orders - Session:', session?.user?.id);
       if (!session?.user?.id) {
         console.warn('No user session found');
         return null;
       }
 
       const userType = session.user.user_metadata?.type;
-      console.log('User type:', userType);
 
       let query = supabase
         .from('order')
@@ -66,11 +64,7 @@ const Orders = () => {
       }
 
       const { data, error: err } = await query;
-      
-      console.log('Query Results:', {
-        dataLength: data?.length,
-        error: err
-      });
+
 
       if (err) {
         console.error('Fetch orders error:', err);
@@ -91,7 +85,6 @@ const Orders = () => {
   }, [session]);
 
   const refreshOrders = useCallback(async () => {
-    console.log('Refreshing orders');
     setRefreshing(true);
     try {
       const refreshedOrders = await fetchOrders();
@@ -108,7 +101,7 @@ const Orders = () => {
   }, [fetchOrders]);
 
   useEffect(() => {
-    console.log('Orders component mounted');
+
     fetchOrders().then((initialOrders) => {
       if (initialOrders) {
         setOrders(initialOrders);
@@ -118,13 +111,7 @@ const Orders = () => {
 
     const channel = supabase.channel('orders-channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order' }, (payload) => {
-        console.log('Supabase real-time event:', {
-          eventType: payload.eventType,
-          payload: payload
-        });
-
         if (payload.eventType === 'INSERT') {
-          console.log('Inserting new order');
           setOrders((currentOrders) => currentOrders ? [
             {
               ...payload.new as Tables<'order'>,
@@ -133,37 +120,36 @@ const Orders = () => {
             ...currentOrders
           ] : []);
         } else if (payload.eventType === 'UPDATE') {
-          console.log('Updating existing order');
-          setOrders((currentOrders) => currentOrders ? currentOrders.map(order => 
-            order.id === payload.new.id 
+          setOrders((currentOrders) => currentOrders ? currentOrders.map(order =>
+            order.id === payload.new.id
               ? {
-                  ...payload.new as Tables<'order'>,
-                  status: (payload.new.status || 'Pending') as OrderStatus
-                }
+                ...payload.new as Tables<'order'>,
+                status: (payload.new.status || 'Pending') as OrderStatus
+              }
               : order
           ) : []);
         } else if (payload.eventType === 'DELETE') {
-          console.log('Deleting order');
           setOrders((currentOrders) => currentOrders ? currentOrders.filter(order => order.id !== payload.old.id) : []);
         }
       })
       .subscribe();
-
-    console.log('Real-time subscription created');
-
     return () => {
-      console.log('Cleaning up real-time subscription');
       supabase.removeChannel(channel);
     };
   }, [session, fetchOrders]);
 
-  // ... rest of the component remains the same (unchanged from original code)
 
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'Orders' }} />
-      <Pressable onPress={refreshOrders}>
-        <Text style={{ fontSize: 18, color: '#007bff' }}>Refresh Orders</Text>
+      <Pressable
+        onPress={refreshOrders}
+        style={({ pressed }) => [
+          styles.refreshButton,
+          pressed && styles.refreshButtonPressed
+        ]}
+      >
+        <Text style={{ color: '#007bff', fontWeight: 'bold' }}>Refresh Orders</Text>
       </Pressable>
       <FlatList
         data={orders}
@@ -183,6 +169,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+  },
+  refreshButton: {
+    fontSize: 18,
+    color: '#007bff',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    backgroundColor: '#e6f2ff',
+    shadowColor: '#007bff',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  refreshButtonPressed: {
+    transform: [{ scale: 0.95 }],
+    backgroundColor: '#c4e0ff',
+    shadowOpacity: 0.2,
+    elevation: 2,
   },
   orderContainer: {
     backgroundColor: '#f8f8f8',

@@ -18,14 +18,16 @@ export default function AdminDashboard() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>({
+    
     title: '',
+    slug: '',
+    imagesUrl: [],
     price: 0,
-    maxQuantity: 0,
     heroImage: '',
     category: 1,
-    slug: '',
+    maxQuantity: 0,
   });
-
+  
   const {
     products,
     isLoading: productsLoading,
@@ -43,11 +45,12 @@ export default function AdminDashboard() {
   const resetForm = () => {
     setFormData({
       title: '',
-      price: 0,
-      maxQuantity: 0,
-      heroImage: '',
-      category: 1,
-      slug: '',
+    slug: '',
+    imagesUrl: [],
+    price: 0,
+    heroImage: '',
+    category: 1,
+    maxQuantity: 0,
     });
     setSelectedProduct(null);
   };
@@ -56,21 +59,26 @@ export default function AdminDashboard() {
     setSelectedProduct(product);
     setFormData({
       title: product.title,
+      slug: product.slug,
+      imagesUrl: product.imagesUrl,
       price: product.price,
-      maxQuantity: product.maxQuantity,
       heroImage: product.heroImage,
       category: product.category,
-      slug: product.slug,
+      maxQuantity: product.maxQuantity,
     });
     setIsModalVisible(true);
   };
 
-  const pickImage = async () => {
-    const imageUrl = await pickImageBase();
-    if (imageUrl) {
+const pickImage = async (imageType: string, isHero: boolean) => {
+  const imageUrl = await pickImageBase();
+  if (imageUrl) {
+    if (isHero) {
       setFormData(prev => ({ ...prev, heroImage: imageUrl }));
+    } else {
+      setFormData(prev => ({ ...prev, imagesUrl: [...prev.imagesUrl, imageUrl] }));
     }
-  };
+  }
+};
 
   const handleSignOut = async () => {
     try {
@@ -149,8 +157,10 @@ export default function AdminDashboard() {
         }}
         onSubmit={() => {
           if (selectedProduct) {
+            // Dodajte `id` kada se ažurira proizvod
             handleUpdateProduct(selectedProduct.id, formData);
           } else {
+            // Kreiranje novog proizvoda
             handleCreateProduct(formData);
           }
           setIsModalVisible(false);
