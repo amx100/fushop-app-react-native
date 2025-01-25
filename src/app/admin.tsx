@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, Image, Alert, Platform } from 'react-native';
 import { useAuth } from '../providers/auth-provider';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -133,16 +133,67 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteProduct = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
-
     try {
-      const { error } = await supabase.from('product').delete().eq('id', id);
+      // First get the product to get the image path
+      const { data: product } = await supabase
+        .from('product')
+        .select('heroImage')
+        .eq('id', id)
+        .single();
 
-      if (error) throw error;
+      // Delete the product from the database
+      const { error: deleteError } = await supabase
+        .from('product')
+        .delete()
+        .eq('id', id);
 
+      if (deleteError) throw deleteError;
+
+      // If product had an image, delete it from storage
+      if (product?.heroImage) {
+        try {
+          const imagePath = product.heroImage.split('/').pop(); // Get filename from URL
+          if (imagePath) {
+            await supabase.storage
+              .from('app-images')
+              .remove([imagePath]);
+          }
+        } catch (storageError) {
+          console.log('Error deleting image:', storageError);
+          // Continue even if image deletion fails
+        }
+      }
+
+      // Refresh the products list
       await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      Toast.show('Product deleted successfully', { type: 'success' });
+
     } catch (error) {
-      alert('Error deleting product: ' + (error as Error).message);
+      Toast.show('Error deleting product: ' + (error as Error).message, { 
+        type: 'error' 
+      });
+    }
+  };
+
+  // Update the delete button click handler to show confirmation
+  const confirmDelete = (id: number) => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to delete this product?')) {
+        handleDeleteProduct(id);
+      }
+    } else {
+      Alert.alert(
+        'Confirm Delete',
+        'Are you sure you want to delete this product?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Delete', 
+            style: 'destructive',
+            onPress: () => handleDeleteProduct(id)
+          }
+        ]
+      );
     }
   };
 
@@ -265,7 +316,7 @@ export default function AdminDashboard() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.deleteButton]}
-                  onPress={() => handleDeleteProduct(product.id)}
+                  onPress={() => confirmDelete(product.id)}
                 >
                   <Text style={styles.buttonText}>Delete</Text>
                 </TouchableOpacity>
@@ -306,15 +357,22 @@ export default function AdminDashboard() {
           
           <View style={styles.imageUploadContainer}>
             {formData.heroImage ? (
-              <RemoteImage 
-                path={formData.heroImage}
-                fallback="https://placehold.co/200x150"
-                style={styles.previewImage} 
+              <Image 
+                source={{ uri: formData.heroImage }} 
+                style={styles.previewImage}
+                resizeMode="cover"
               />
-            ) : null}
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Text style={styles.placeholderText}>No image selected</Text>
+              </View>
+            )}
             
             <TouchableOpacity
-              style={styles.imageUploadButton}
+              style={[
+                styles.imageUploadButton,
+                formData.heroImage ? styles.changeImageButton : null
+              ]}
               onPress={pickImage}
             >
               <Text style={styles.buttonText}>
@@ -477,12 +535,27 @@ const styles = StyleSheet.create({
     top: 50,
     alignItems: 'center',
     marginBottom: 20,
+    width: '100%',
   },
   previewImage: {
-    width: 200,
-    height: 150,
-    marginBottom: 10,
+    width: '100%',
+    height: 200,
     borderRadius: 8,
+    marginBottom: 10,
+    backgroundColor: '#f0f0f0',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  placeholderText: {
+    color: '#666',
+    fontSize: 16,
   },
   imageUploadButton: {
     backgroundColor: '#2196F3',
@@ -490,5 +563,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     width: '100%',
     alignItems: 'center',
+  },
+  changeImageButton: {
+    backgroundColor: '#1976D2',
   },
 }); 
