@@ -9,10 +9,11 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import * as zod from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { Toast } from 'react-native-toast-notifications';
 import { useAuth } from '../providers/auth-provider';
+import { useEffect } from 'react';
 
 const authSchema = zod.object({
   email: zod.string().email({ message: 'Invalid email address' }),
@@ -23,9 +24,7 @@ const authSchema = zod.object({
 
 export default function Auth() {
   const { session } = useAuth();
-
-  if (session) return <Redirect href='/' />;
-
+  const router = useRouter();
   const { control, handleSubmit, formState } = useForm({
     resolver: zodResolver(authSchema),
     defaultValues: {
@@ -33,6 +32,26 @@ export default function Auth() {
       password: '',
     },
   });
+
+  useEffect(() => {
+    const checkUserType = async () => {
+      if (session?.user) {
+        const { data } = await supabase
+          .from('users')
+          .select('type')
+          .eq('id', session.user.id)
+          .single();
+
+        if (data?.type === 'ADMIN') {
+          router.replace('/admin');
+        } else {
+          router.replace('/');
+        }
+      }
+    };
+
+    checkUserType();
+  }, [session]);
 
   const signIn = async (data: zod.infer<typeof authSchema>) => {
     const { error } = await supabase.auth.signInWithPassword(data);
@@ -88,7 +107,13 @@ export default function Auth() {
       placement: 'top',
       duration: 1500,
     });
+    
+    router.replace('/admin');
   };
+
+  if (session) {
+    return null;
+  }
 
   return (
     <ImageBackground
