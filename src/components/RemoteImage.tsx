@@ -12,6 +12,14 @@ const RemoteImage = ({ path, fallback, ...imageProps }: RemoteImageProps) => {
 
   useEffect(() => {
     if (!path) return;
+
+    // If the path is already a full URL, use it directly
+    if (path.startsWith('http')) {
+      setImage(path);
+      return;
+    }
+
+    // Otherwise, try to download from storage
     (async () => {
       setImage('');
       const { data, error } = await supabase.storage

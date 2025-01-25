@@ -304,9 +304,24 @@ export default function AdminDashboard() {
         ) : (
           products?.map((product) => (
             <View key={product.id} style={styles.productItem}>
-              <Text style={styles.productTitle}>{product.title}</Text>
-              <Text>Price: ${product.price}</Text>
-              <Text>Quantity: {product.maxQuantity}</Text>
+              <View style={styles.productHeader}>
+                {product.heroImage ? (
+                  <RemoteImage 
+                    path={product.heroImage}
+                    fallback="https://placehold.co/80x80"
+                    style={styles.productImage}
+                  />
+                ) : (
+                  <View style={styles.noImage}>
+                    <Text style={styles.noImageText}>No Image</Text>
+                  </View>
+                )}
+                <View style={styles.productInfo}>
+                  <Text style={styles.productTitle}>{product.title}</Text>
+                  <Text style={styles.productPrice}>Price: ${product.price}</Text>
+                  <Text style={styles.productQuantity}>Quantity: {product.maxQuantity}</Text>
+                </View>
+              </View>
               <View style={styles.productActions}>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.editButton]}
@@ -459,10 +474,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     marginBottom: 10,
   },
+  productHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  productImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 15,
+  },
+  noImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  noImageText: {
+    color: '#666',
+    fontSize: 12,
+  },
+  productInfo: {
+    flex: 1,
+  },
   productTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 5,
+  },
+  productPrice: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 3,
+  },
+  productQuantity: {
+    fontSize: 16,
+    color: '#666',
   },
   productActions: {
     flexDirection: 'row',
