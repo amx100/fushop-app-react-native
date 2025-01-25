@@ -48,10 +48,8 @@ const Orders = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        setIsLoading(true);
-        
         if (!session?.user?.id) return;
-
+  
         const userType = session.user.user_metadata?.type;
         
         let query = supabase
@@ -59,24 +57,64 @@ const Orders = () => {
           .select('*')
           .order('created_at', { ascending: false });
         
-        // If not admin, only fetch user's orders
         if (userType !== 'ADMIN') {
           query = query.eq('user', session.user.id);
         }
-
+  
         const { data, error: err } = await query;
-
+  
         if (err) throw err;
         
         setOrders(data);
+        setIsLoading(false);
       } catch (err) {
         setError(err as Error);
-      } finally {
         setIsLoading(false);
       }
     };
 
     fetchOrders();
+
+    // Set up realtime subscription with specific filters
+    const channel = supabase.channel('orders-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'order',
+          filter: session?.user?.user_metadata?.type !== 'ADMIN' 
+            ? `user=eq.${session?.user?.id}` 
+            : undefined
+        },
+        (payload) => {
+          // Handle all events in a single callback
+          if (payload.eventType === 'INSERT') {
+            setOrders(currentOrders => {
+              if (!currentOrders) return [payload.new as Tables<'order'>];
+              return [payload.new as Tables<'order'>, ...currentOrders];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setOrders(currentOrders => {
+              if (!currentOrders) return currentOrders;
+              return currentOrders.map(order => 
+                order.id === payload.new.id ? payload.new as Tables<'order'> : order
+              );
+            });
+          } else if (payload.eventType === 'DELETE') {
+            setOrders(currentOrders => {
+              if (!currentOrders) return currentOrders;
+              return currentOrders.filter(order => order.id !== payload.old.id);
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [session]);
 
   if (!session) {
