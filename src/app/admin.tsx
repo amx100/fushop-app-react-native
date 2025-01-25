@@ -26,6 +26,18 @@ type Product = {
 
 type ProductFormData = Omit<Product, 'id'>;
 
+type OrderStatus = 'Pending' | 'Completed' | 'Shipped' | 'InTransit';
+
+type Order = {
+  id: number;
+  created_at: string;
+  status: OrderStatus;
+  totalPrice: number;
+  user: string;
+  description: string | null;
+  slug: string;
+};
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
@@ -40,6 +52,7 @@ export default function AdminDashboard() {
     category: 1,
     slug: '',
   });
+  const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
 
   // Fetch products
   const { data: products, isLoading } = useQuery({
@@ -52,6 +65,20 @@ export default function AdminDashboard() {
 
       if (error) throw error;
       return data as Product[];
+    },
+  });
+
+  // Fetch orders
+  const { data: orders, isLoading: ordersLoading } = useQuery({
+    queryKey: ['admin-orders'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('order')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Order[];
     },
   });
 
@@ -283,63 +310,143 @@ export default function AdminDashboard() {
     }
   };
 
+  // Add function to update order status
+  const updateOrderStatus = async (orderId: number, newStatus: OrderStatus) => {
+    try {
+      const { error } = await supabase
+        .from('order')
+        .update({ status: newStatus })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      await queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      Toast.show('Order status updated successfully', { type: 'success' });
+    } catch (error) {
+      Toast.show('Error updating order status: ' + (error as Error).message, { 
+        type: 'error' 
+      });
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Admin Dashboard</Text>
       <Text style={styles.subtitle}>Welcome, {user?.email}</Text>
 
-      <TouchableOpacity 
-        style={styles.createButton}
-        onPress={() => {
-          resetForm();
-          setIsModalVisible(true);
-        }}
-      >
-        <Text style={styles.buttonText}>Create New Product</Text>
-      </TouchableOpacity>
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'products' && styles.activeTab]}
+          onPress={() => setActiveTab('products')}
+        >
+          <Text style={[styles.tabText, activeTab === 'products' && styles.activeTabText]}>
+            Products
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
+          onPress={() => setActiveTab('orders')}
+        >
+          <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
+            Orders
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-      <ScrollView style={styles.productList}>
-        {isLoading ? (
-          <Text>Loading products...</Text>
-        ) : (
-          products?.map((product) => (
-            <View key={product.id} style={styles.productItem}>
-              <View style={styles.productHeader}>
-                {product.heroImage ? (
-                  <RemoteImage 
-                    path={product.heroImage}
-                    fallback="https://placehold.co/80x80"
-                    style={styles.productImage}
-                  />
-                ) : (
-                  <View style={styles.noImage}>
-                    <Text style={styles.noImageText}>No Image</Text>
+      {activeTab === 'products' ? (
+        <ScrollView style={styles.productList}>
+          <TouchableOpacity 
+            style={styles.createButton}
+            onPress={() => {
+              resetForm();
+              setIsModalVisible(true);
+            }}
+          >
+            <Text style={styles.buttonText}>Create New Product</Text>
+          </TouchableOpacity>
+
+          {isLoading ? (
+            <Text>Loading products...</Text>
+          ) : (
+            products?.map((product) => (
+              <View key={product.id} style={styles.productItem}>
+                <View style={styles.productHeader}>
+                  {product.heroImage ? (
+                    <RemoteImage 
+                      path={product.heroImage}
+                      fallback="https://placehold.co/80x80"
+                      style={styles.productImage}
+                    />
+                  ) : (
+                    <View style={styles.noImage}>
+                      <Text style={styles.noImageText}>No Image</Text>
+                    </View>
+                  )}
+                  <View style={styles.productInfo}>
+                    <Text style={styles.productTitle}>{product.title}</Text>
+                    <Text style={styles.productPrice}>Price: ${product.price}</Text>
+                    <Text style={styles.productQuantity}>Quantity: {product.maxQuantity}</Text>
                   </View>
-                )}
-                <View style={styles.productInfo}>
-                  <Text style={styles.productTitle}>{product.title}</Text>
-                  <Text style={styles.productPrice}>Price: ${product.price}</Text>
-                  <Text style={styles.productQuantity}>Quantity: {product.maxQuantity}</Text>
+                </View>
+                <View style={styles.productActions}>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.editButton]}
+                    onPress={() => openEditModal(product)}
+                  >
+                    <Text style={styles.buttonText}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.deleteButton]}
+                    onPress={() => confirmDelete(product.id)}
+                  >
+                    <Text style={styles.buttonText}>Delete</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-              <View style={styles.productActions}>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.editButton]}
-                  onPress={() => openEditModal(product)}
-                >
-                  <Text style={styles.buttonText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.deleteButton]}
-                  onPress={() => confirmDelete(product.id)}
-                >
-                  <Text style={styles.buttonText}>Delete</Text>
-                </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      ) : (
+        <ScrollView style={styles.orderList}>
+          {ordersLoading ? (
+            <Text>Loading orders...</Text>
+          ) : (
+            orders?.map((order) => (
+              <View key={order.id} style={styles.orderItem}>
+                <View style={styles.orderHeader}>
+                  <Text style={styles.orderTitle}>Order #{order.slug}</Text>
+                  <Text style={styles.orderDate}>
+                    {new Date(order.created_at).toLocaleDateString()}
+                  </Text>
+                </View>
+                <Text style={styles.orderPrice}>Total: ${order.totalPrice}</Text>
+                <View style={styles.orderStatusContainer}>
+                  <Text style={styles.orderStatusLabel}>Status:</Text>
+                  <View style={[styles.statusBadge, styles[`statusBadge_${order.status}`]]}>
+                    <Text style={styles.statusText}>{order.status}</Text>
+                  </View>
+                </View>
+                <View style={styles.statusButtons}>
+                  {(['Pending', 'Completed', 'Shipped', 'InTransit'] as OrderStatus[]).map((status) => (
+                    <TouchableOpacity
+                      key={status}
+                      style={[
+                        styles.statusButton,
+                        styles[`statusButton_${status}`],
+                        order.status === status && styles.statusButtonDisabled
+                      ]}
+                      disabled={order.status === status}
+                      onPress={() => updateOrderStatus(order.id, status)}
+                    >
+                      <Text style={styles.statusButtonText}>{status}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+            ))
+          )}
+        </ScrollView>
+      )}
 
       <Modal visible={isModalVisible} animationType="slide">
         <View style={styles.modalContainer}>
@@ -617,5 +724,116 @@ const styles = StyleSheet.create({
   },
   changeImageButton: {
     backgroundColor: '#1976D2',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  tab: {
+    flex: 1,
+    padding: 15,
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    marginHorizontal: 5,
+    borderRadius: 8,
+  },
+  activeTab: {
+    backgroundColor: '#2196F3',
+  },
+  tabText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  orderList: {
+    flex: 1,
+    marginBottom: 20,
+  },
+  orderItem: {
+    padding: 15,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  orderTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  orderDate: {
+    color: '#666',
+  },
+  orderPrice: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 10,
+  },
+  orderStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  orderStatusLabel: {
+    fontSize: 16,
+    marginRight: 10,
+  },
+  statusBadge: {
+    padding: 5,
+    borderRadius: 4,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  statusBadge_Pending: {
+    backgroundColor: '#ffcc00',
+  },
+  statusBadge_Completed: {
+    backgroundColor: '#4caf50',
+  },
+  statusBadge_Shipped: {
+    backgroundColor: '#2196f3',
+  },
+  statusBadge_InTransit: {
+    backgroundColor: '#ff9800',
+  },
+  statusText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  statusButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  statusButton: {
+    padding: 8,
+    borderRadius: 4,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  statusButtonDisabled: {
+    opacity: 0.5,
+  },
+  statusButton_Pending: {
+    backgroundColor: '#ffcc00',
+  },
+  statusButton_Completed: {
+    backgroundColor: '#4caf50',
+  },
+  statusButton_Shipped: {
+    backgroundColor: '#2196f3',
+  },
+  statusButton_InTransit: {
+    backgroundColor: '#ff9800',
+  },
+  statusButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 }); 
