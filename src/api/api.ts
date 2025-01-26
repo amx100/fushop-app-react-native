@@ -95,37 +95,46 @@ export const getMyOrders = () => {
 };
 
 export const createOrder = () => {
-  const {
-    user: { id },
-  } = useAuth();
-
-  const slug = generateOrderSlug();
-
+  const auth = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     async mutationFn({ totalPrice }: { totalPrice: number }) {
-      const { data, error } = await supabase
+      // Check if auth is initialized and user exists
+      if (!auth?.user?.id) {
+        throw new Error('Please log in to create an order');
+      }
+
+      const slug = generateOrderSlug();
+      
+      const { data: orderData, error: orderError } = await supabase
         .from('order')
         .insert({
           totalPrice,
           slug,
-          user: id,
+          user: auth.user.id,
           status: 'Pending',
         })
         .select('*')
         .single();
 
-      if (error)
+      if (orderError || !orderData) {
+        console.error('Order creation error:', orderError);
         throw new Error(
-          'An error occurred while creating order: ' + error.message
+          'An error occurred while creating order: ' + orderError?.message
         );
+      }
 
-      return data;
+      return orderData;
     },
 
-    async onSuccess() {
-      await queryClient.invalidateQueries({ queryKey: ['order'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+
+    onError: (error) => {
+      console.error('Mutation error:', error);
+      throw error;
     },
   });
 };

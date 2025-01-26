@@ -33,35 +33,50 @@ export default function AuthProvider({ children }: PropsWithChildren) {
   } | null>(null);
   const [mounting, setMounting] = useState(true);
 
+  const fetchUserData = async (userId: string) => {
+    const { data: userData, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user data:', error);
+    } else {
+      setUser(userData);
+    }
+  };
+
   useEffect(() => {
     const fetchSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
 
-      setSession(session);
-
-      if (session) {
-        const { data: user, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (error) {
-          console.error('error', error);
-        } else {
-          setUser(user);
+        if (session?.user?.id) {
+          await fetchUserData(session.user.id);
         }
+      } catch (error) {
+        console.error('Error fetching session:', error);
+      } finally {
+        setMounting(false);
       }
-
-      setMounting(false);
     };
 
     fetchSession();
-    supabase.auth.onAuthStateChange((_event, session) => {
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
+      if (session?.user?.id) {
+        await fetchUserData(session.user.id);
+      } else {
+        setUser(null);
+      }
     });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
@@ -71,4 +86,10 @@ export default function AuthProvider({ children }: PropsWithChildren) {
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

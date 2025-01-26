@@ -34,3 +34,14 @@ export type Category = {
 };
 
 export type CategoryFormData = Omit<Category, 'id' | 'products'>;
+
+export interface CartItem {
+  id: string | number;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+export interface Cart {
+  items: CartItem[];
+}

@@ -11,7 +11,9 @@ import {
 import { useCartStore } from '../store/cart-store';
 import { StatusBar } from 'expo-status-bar';
 import { createOrder, createOrderItem } from '../api/api';
-
+import { useAuth } from '../providers/auth-provider';
+// Removing the problematic import since AuthContext module is not found
+// import { useAuth } from '../contexts/AuthContext';
 
 type CartItemType = {
   id: number;
@@ -35,12 +37,17 @@ const CartItem = ({
   onIncrement,
   onRemove,
 }: CartItemProps) => {
+  if (!item?.id) return null; // Add null check for item
+
   return (
     <View style={styles.cartItem}>
-      <Image source={{ uri: item.heroImage }} style={styles.itemImage} />
+      <Image 
+        source={{ uri: item.heroImage }} 
+        style={styles.itemImage}
+      />
       <View style={styles.itemDetails}>
         <Text style={styles.itemTitle}>{item.title}</Text>
-        <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+        <Text style={styles.itemPrice}>${(item.price || 0).toFixed(2)}</Text>
         <View style={styles.quantityContainer}>
           <TouchableOpacity
             onPress={() => onDecrement(item.id)}
@@ -70,7 +77,7 @@ const CartItem = ({
 
 export default function Cart() {
   const {
-    items = [], // Provide a default empty array
+    items = [],
     removeItem,
     incrementItem,
     decrementItem,
@@ -78,36 +85,84 @@ export default function Cart() {
     resetCart,
   } = useCartStore();
 
+  const { session, user, mounting } = useAuth();
   const { mutateAsync: createSupabaseOrder } = createOrder();
   const { mutateAsync: createSupabaseOrderItem } = createOrderItem();
 
+  if (mounting) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyCartText}>Loading...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!session || !user?.id) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyCartText}>Please log in to view your cart</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!Array.isArray(items)) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyCartText}>Loading cart...</Text>
+        </View>
+      </View>
+    );
+  }
+
   const handleCheckout = async () => {
-    const totalPrice = parseFloat(getTotalPrice());
+    if (items.length === 0) {
+      Alert.alert('Error', 'Your cart is empty');
+      return;
+    }
 
     try {
-      await createSupabaseOrder(
-        { totalPrice },
-        {
-          onSuccess: data => {
-            createSupabaseOrderItem(
-              items.map(item => ({
-                orderId: data.id,
-                productId: item.id,
-                quantity: item.quantity,
-              })),
-              {
-                onSuccess: () => {
-                  Alert.alert('Success', 'Order created successfully');
-                  resetCart();
-                },
-              }
-            );
+      const orderData = await createSupabaseOrder({ 
+        totalPrice: parseFloat(getTotalPrice()) 
+      });
+
+      if (!orderData?.id) {
+        throw new Error('Failed to create order: No order ID returned');
+      }
+
+      await createSupabaseOrderItem(
+        items.map(item => ({
+          orderId: orderData.id,
+          productId: item.id,
+          quantity: item.quantity,
+        }))
+      );
+
+      Alert.alert(
+        'Success',
+        'Order created successfully',
+        [
+          {
+            text: 'OK',
+            onPress: () => resetCart(),
           },
-        }
+        ]
       );
     } catch (error) {
-      console.error(error);
-      Alert.alert('Error', 'An error occurred while creating the order');
+      console.error('Checkout error:', error);
+      Alert.alert(
+        'Error',
+        error instanceof Error 
+          ? error.message 
+          : 'An error occurred while creating the order'
+      );
     }
   };
 
@@ -117,7 +172,7 @@ export default function Cart() {
 
       <FlatList
         data={items}
-        keyExtractor={item => item.id.toString()}
+        keyExtractor={item => item?.id?.toString() || Math.random().toString()}
         renderItem={({ item }) => (
           <CartItem
             item={item}
@@ -127,13 +182,20 @@ export default function Cart() {
           />
         )}
         contentContainerStyle={styles.cartList}
+        ListEmptyComponent={() => (
+          <Text style={styles.emptyCartText}>Your cart is empty</Text>
+        )}
       />
 
       <View style={styles.footer}>
         <Text style={styles.totalText}>Total: ${getTotalPrice()}</Text>
         <TouchableOpacity
           onPress={handleCheckout}
-          style={styles.checkoutButton}
+          style={[
+            styles.checkoutButton,
+            items.length === 0 && styles.disabledButton
+          ]}
+          disabled={items.length === 0}
         >
           <Text style={styles.checkoutButtonText}>Checkout</Text>
         </TouchableOpacity>
@@ -230,5 +292,19 @@ const styles = StyleSheet.create({
   quantityButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  emptyCartText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#666',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
