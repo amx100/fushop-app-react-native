@@ -24,8 +24,15 @@ const initialFormData: ProductFormData = {
   price: 0,
   maxQuantity: 0,
   heroImage: '',
-  category: 0, // Initial category value
-  slug: ''
+  category: 0,
+  slug: '',
+  imagesUrl: [],
+};
+
+const initialCategoryFormData: CategoryFormData = {
+  name: '',
+  slug: '',
+  imageUrl: '',
 };
 
 export default function AdminDashboard() {
@@ -33,18 +40,14 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'categories'>('products');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [formData, setFormData] = useState<ProductFormData>(initialFormData);
-  const [previewImage, setPreviewImage] = useState<string | null>(null); // State for image preview
-  const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({
-    name: '',
-    slug: '',
-    imageUrl: '',
-  });
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [formData, setFormData] = useState<ProductFormData>(initialFormData);
+  const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>(initialCategoryFormData);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   const {
     products,
     isLoading: productsLoading,
@@ -53,11 +56,13 @@ export default function AdminDashboard() {
     handleDeleteProduct,
     pickImage: pickImageBase,
   } = useAdminProducts();
+
   const {
     orders,
     isLoading: ordersLoading,
     updateOrderStatus,
   } = useAdminOrders();
+
   const {
     categories,
     isLoading: categoriesLoading,
@@ -69,21 +74,12 @@ export default function AdminDashboard() {
   const resetForm = () => {
     setFormData(initialFormData);
     setSelectedProduct(null);
-    setPreviewImage(null); // Reset preview image when form is reset
+    setPreviewImage(null);
   };
 
-  const openEditModal = (product: Product) => {
-    setSelectedProduct(product);
-    setFormData({
-      title: product.title,
-      slug: product.slug,
-      price: product.price,
-      heroImage: product.heroImage,
-      category: product.category,
-      maxQuantity: product.maxQuantity,
-    });
-    setPreviewImage(product.heroImage); // Set preview image to existing hero image
-    setIsModalVisible(true);
+  const resetCategoryForm = () => {
+    setCategoryFormData(initialCategoryFormData);
+    setSelectedCategory(null);
   };
 
   const uploadImage = async (uri: string) => {
@@ -143,15 +139,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const resetCategoryForm = () => {
-    setCategoryFormData({
-      name: '',
-      slug: '',
-      imageUrl: '',
-    });
-    setSelectedCategory(null);
-  };
-
   const pickCategoryImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -193,6 +180,21 @@ export default function AdminDashboard() {
     }
   };
 
+  const openEditModal = (product: Product) => {
+    setSelectedProduct(product);
+    setFormData({
+      title: product.title,
+      slug: product.slug,
+      imagesUrl: product.imagesUrl,
+      price: product.price,
+      heroImage: product.heroImage,
+      category: product.category,
+      maxQuantity: product.maxQuantity,
+    });
+    setPreviewImage(product.heroImage);
+    setIsModalVisible(true);
+  };
+
   const filteredProducts = products?.filter(product => 
     product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     product.slug.toLowerCase().includes(searchQuery.toLowerCase())
@@ -212,8 +214,6 @@ export default function AdminDashboard() {
           <Text style={styles.buttonText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
-
-    
 
       <View style={styles.tabContainer}>
         <TouchableOpacity 
@@ -314,10 +314,7 @@ export default function AdminDashboard() {
               });
               setIsCategoryModalVisible(true);
             }}
-            onDelete={(id) => {
-
-              handleDeleteCategory(id);
-            }}
+            onDelete={(id) => handleDeleteCategory(id)}
           />
         </View>
       )}
@@ -365,7 +362,6 @@ export default function AdminDashboard() {
         onPickImage={pickCategoryImage}
       />
 
-      {/* Preview Image */}
       {previewImage && (
         <View style={styles.previewContainer}>
           <Text style={styles.previewTitle}>Image Preview:</Text>
@@ -377,6 +373,7 @@ export default function AdminDashboard() {
 }
 
 const styles = StyleSheet.create({
+  // Styles remain largely the same, with minor adjustments
   container: {
     flex: 1,
     padding: 20,
@@ -459,60 +456,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
     padding: 15,
     borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  actionBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 15,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-
-  actionButton: {
-    alignItems: 'center',
-    backgroundColor: '#2196F3',
-    padding: 12,
-    borderRadius: 10,
-    minWidth: 100,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-  },
-
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#333',
-    paddingVertical: 4,
-  },
-});
+    align
