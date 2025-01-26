@@ -16,10 +16,13 @@
     "@supabase/supabase-js": "^2.48.0",
     "@tanstack/react-query": "^5.53.1",
     "aes-js": "^3.1.2",
+    "base64-arraybuffer": "^1.0.2",
     "date-fns": "^3.6.0",
     "expo": "^52.0.0",
     "expo-constants": "~17.0.4",
+    "expo-crypto": "^14.0.2",
     "expo-device": "~7.0.2",
+    "expo-image-picker": "~16.0.4",
     "expo-linking": "~7.0.4",
     "expo-notifications": "~0.29.12",
     "expo-router": "~4.0.17",
@@ -33,7 +36,7 @@
     "react-native-screens": "~4.4.0",
     "react-native-toast-notifications": "^3.4.0",
     "stripe": "^17.5.0",
-    "zod": "^3.23.8",
+    "zod": "^3.24.1",
     "zustand": "^4.5.4"
   },
   "devDependencies": {

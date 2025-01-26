@@ -182,9 +182,11 @@ export const createOrderItem = () => {
 };
 
 export const getMyOrder = (slug: string) => {
-  const {
-    user: { id },
-  } = useAuth();
+  const auth = useAuth();
+
+  if (!auth?.user?.id) {
+    throw new Error('User is not authenticated');
+  }
 
   return useQuery({
     queryKey: ['orders', slug],
@@ -193,15 +195,15 @@ export const getMyOrder = (slug: string) => {
         .from('order')
         .select('*, order_items:order_item(*, products:product(*))')
         .eq('slug', slug)
-        .eq('user', id)
+        .eq('user', auth.user.id)
         .single();
 
-      if (error || !data)
-        throw new Error(
-          'An error occurred while fetching data: ' + error.message
-        );
+      if (error || !data) {
+        throw new Error('An error occurred while fetching order data: ' + error?.message);
+      }
 
       return data;
     },
   });
 };
+

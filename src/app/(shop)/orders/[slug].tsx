@@ -8,28 +8,29 @@ import {
   View,
 } from 'react-native';
 
-import { ORDERS } from '../../../../assets/orders';
 import { getMyOrder } from '../../../api/api';
 import { format } from 'date-fns';
 
 const OrderDetails = () => {
   const { slug } = useLocalSearchParams<{ slug: string }>();
 
-  const { data: order, error, isLoading } = getMyOrder(slug);
+  const { data: order, error, isLoading } = getMyOrder(slug || '');
 
   if (isLoading) return <ActivityIndicator />;
 
-  if (error || !order) return <Text>Error: {error?.message}</Text>;
+  if (error) return <Text>Error: {error?.message}</Text>;
 
-  const orderItems = order.order_items.map((orderItem: any) => {
-    return {
-      id: orderItem.id,
-      title: orderItem.products.title,
-      heroImage: orderItem.products.heroImage,
-      price: orderItem.products.price,
-      quantity: orderItem.quantity,
-    };
-  });
+  if (!order || !order.order_items) {
+    return <Text>No order details found.</Text>;
+  }
+
+  const orderItems = order.order_items.map((orderItem: any) => ({
+    id: orderItem.id,
+    title: orderItem.products?.title || 'Unknown product',
+    heroImage: orderItem.products?.heroImage || '',
+    price: orderItem.products?.price || 0,
+    quantity: orderItem.quantity || 0,
+  }));
 
   return (
     <View style={styles.container}>
@@ -46,15 +47,21 @@ const OrderDetails = () => {
       <Text style={styles.itemsTitle}>Items Ordered:</Text>
       <FlatList
         data={orderItems}
-        keyExtractor={item => item.id.toString()}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.orderItem}>
-            <Image source={{ uri: item.heroImage }} style={styles.heroImage} />
+            {item.heroImage ? (
+              <Image source={{ uri: item.heroImage }} style={styles.heroImage} />
+            ) : (
+              <Text>No image available</Text>
+            )}
             <View style={styles.itemInfo}>
               <Text style={styles.itemName}>{item.title}</Text>
               <Text style={styles.itemQuantity}>Quantity: {item.quantity}</Text>
               <Text style={styles.itemPrice}>Price: ${item.price}</Text>
-              <Text style={styles.itemTotal}>Total: ${(item.price * item.quantity).toFixed(2)}</Text>
+              <Text style={styles.itemTotal}>
+                Total: ${(item.price * item.quantity).toFixed(2)}
+              </Text>
             </View>
           </View>
         )}

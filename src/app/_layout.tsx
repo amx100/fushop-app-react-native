@@ -10,9 +10,6 @@ export default function RootLayout() {
     <ToastProvider>
       <AuthProvider>
         <QueryProvider>
-          <StripeProvider
-            publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY!}
-          >
             <NotificationProvider>
               <Stack>
                 <Stack.Screen
@@ -35,9 +32,16 @@ export default function RootLayout() {
                   }}
                 />
                 <Stack.Screen name='auth' options={{ headerShown: false }} />
+                <Stack.Screen
+                  name='admin'
+                  options={{ 
+                    headerShown: true,
+                    title: 'Admin Dashboard',
+                    headerBackVisible: false,
+                  }}
+                />
               </Stack>
             </NotificationProvider>
-          </StripeProvider>
         </QueryProvider>
       </AuthProvider>
     </ToastProvider>
