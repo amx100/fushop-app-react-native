@@ -17,6 +17,7 @@ import { decode } from 'base64-arraybuffer';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { CategoryList } from '../components/admin/CategoryList';
+import { Ionicons } from '@expo/vector-icons';
 
 const initialFormData: ProductFormData = {
   title: '',
@@ -208,11 +209,18 @@ export default function AdminDashboard() {
         </TouchableOpacity>
       </View>
 
+    
+
       <View style={styles.tabContainer}>
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'products' && styles.activeTab]}
           onPress={() => setActiveTab('products')}
         >
+          <Ionicons 
+            name="cube" 
+            size={20} 
+            color={activeTab === 'products' ? '#fff' : '#666'} 
+          />
           <Text style={[styles.tabText, activeTab === 'products' && styles.activeTabText]}>
             Products
           </Text>
@@ -221,6 +229,11 @@ export default function AdminDashboard() {
           style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
           onPress={() => setActiveTab('orders')}
         >
+          <Ionicons 
+            name="cart" 
+            size={20} 
+            color={activeTab === 'orders' ? '#fff' : '#666'} 
+          />
           <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
             Orders
           </Text>
@@ -229,6 +242,11 @@ export default function AdminDashboard() {
           style={[styles.tab, activeTab === 'categories' && styles.activeTab]}
           onPress={() => setActiveTab('categories')}
         >
+          <Ionicons 
+            name="folder" 
+            size={20} 
+            color={activeTab === 'categories' ? '#fff' : '#666'} 
+          />
           <Text style={[styles.tabText, activeTab === 'categories' && styles.activeTabText]}>
             Categories
           </Text>
@@ -366,17 +384,20 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    flexDirection: 'row',
     padding: 15,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#f5f5f5',
     marginHorizontal: 5,
     borderRadius: 8,
+    gap: 8,
   },
   activeTab: {
     backgroundColor: '#2196F3',
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
   },
   activeTabText: {
@@ -420,5 +441,38 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 20,
+  },
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 15,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+
+  actionButton: {
+    alignItems: 'center',
+    backgroundColor: '#2196F3',
+    padding: 12,
+    borderRadius: 10,
+    minWidth: 100,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
