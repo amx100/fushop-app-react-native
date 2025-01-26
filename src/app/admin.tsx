@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
 import { ProductList } from '../components/admin/ProductList';
 import { OrderList } from '../components/admin/OrderList';
 import { ProductModal } from '../components/admin/ProductModal';
@@ -43,6 +43,7 @@ export default function AdminDashboard() {
   });
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const {
     products,
@@ -64,8 +65,6 @@ export default function AdminDashboard() {
     handleUpdateCategory,
     handleDeleteCategory,
   } = useAdminCategories();
-
-
 
   const resetForm = () => {
     setFormData(initialFormData);
@@ -194,6 +193,11 @@ export default function AdminDashboard() {
     }
   };
 
+  const filteredProducts = products?.filter(product => 
+    product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.slug.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -254,16 +258,33 @@ export default function AdminDashboard() {
       </View>
 
       {activeTab === 'products' ? (
-        <ProductList
-          products={products || []}
-          isLoading={productsLoading}
-          onEdit={openEditModal}
-          onDelete={handleDeleteProduct}
-          onCreateNew={() => {
-            resetForm();
-            setIsModalVisible(true);
-          }}
-        />
+        <>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#666" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#666"
+            />
+            {searchQuery !== '' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <ProductList
+            products={filteredProducts || []}
+            isLoading={productsLoading}
+            onEdit={openEditModal}
+            onDelete={handleDeleteProduct}
+            onCreateNew={() => {
+              resetForm();
+              setIsModalVisible(true);
+            }}
+          />
+        </>
       ) : activeTab === 'orders' ? (
         <OrderList
           orders={orders || []}
@@ -306,12 +327,10 @@ export default function AdminDashboard() {
         formData={formData}
         isEditing={!!selectedProduct}
         onClose={() => {
-          console.log('onClose called'); // Debug log
           setIsModalVisible(false);
           resetForm();
         }}
         onSubmit={() => {
-          console.log('onSubmit called', selectedProduct?.id, formData); // Debug log
           if (selectedProduct) {
             handleUpdateProduct(selectedProduct.id, formData);
           } else {
@@ -322,6 +341,7 @@ export default function AdminDashboard() {
         }}
         onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
         onPickImage={pickImage}
+        categories={categories || []}
       />
 
       <CategoryModal
@@ -474,5 +494,25 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 4,
   },
 });

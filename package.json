@@ -9,8 +9,10 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo/vector-icons": "^14.0.2",
     "@hookform/resolvers": "^3.9.0",
     "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-picker/picker": "2.9.0",
     "@rneui/themed": "^4.0.0-rc.8",
     "@stripe/stripe-react-native": "0.38.6",
     "@supabase/supabase-js": "^2.48.0",
@@ -28,6 +30,7 @@
     "expo-router": "~4.0.17",
     "expo-secure-store": "~14.0.1",
     "expo-status-bar": "~2.0.1",
+    "lodash": "^4.17.21",
     "react": "18.3.1",
     "react-hook-form": "^7.52.2",
     "react-native": "0.76.6",
@@ -37,13 +40,12 @@
     "react-native-toast-notifications": "^3.4.0",
     "stripe": "^17.5.0",
     "zod": "^3.24.1",
-    "zustand": "^4.5.4",
-    "@react-native-picker/picker": "2.9.0",
-    "@expo/vector-icons": "^14.0.2"
+    "zustand": "^4.5.4"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@types/aes-js": "^3.1.4",
+    "@types/lodash": "^4.17.14",
     "@types/node": "^22.10.7",
     "@types/react": "~18.2.45",
     "typescript": "^5.1.3"

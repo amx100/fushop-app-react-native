@@ -4,6 +4,8 @@ import RemoteImage from '../RemoteImage';
 import { Picker } from '@react-native-picker/picker';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 
 type ProductModalProps = {
   visible: boolean;
@@ -13,6 +15,7 @@ type ProductModalProps = {
   onSubmit: () => void;
   onChange: (data: Partial<ProductFormData>) => void;
   onPickImage: () => void;
+  categories: Category[];
 };
 
 // Add this function to fetch categories
@@ -37,9 +40,15 @@ export function ProductModal({
   onClose, 
   onSubmit, 
   onChange,
-  onPickImage 
+  onPickImage,
+  categories
 }: ProductModalProps) {
-  const { data: categories, isLoading } = useCategories();
+  const { data: allCategories, isLoading } = useCategories();
+  const [searchCategory, setSearchCategory] = useState('');
+
+  const filteredCategories = allCategories?.filter(category =>
+    category.name.toLowerCase().includes(searchCategory.toLowerCase())
+  );
 
   const handleSubmit = () => {
     console.log('Submit clicked', formData); // Debug log
@@ -105,22 +114,40 @@ export function ProductModal({
             keyboardType="numeric"
           />
 
-          <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>Category</Text>
-            <Picker
-              selectedValue={formData.category}
-              style={styles.picker}
-              onValueChange={(itemValue) => onChange({ category: itemValue })}
-            >
-              <Picker.Item label="Select a category" value={0} />
-              {categories?.map((category) => (
-                <Picker.Item 
-                  key={category.id} 
-                  label={category.name} 
-                  value={category.id} 
-                />
-              ))}
-            </Picker>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#666" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search categories..."
+              value={searchCategory}
+              onChangeText={setSearchCategory}
+              placeholderTextColor="#666"
+            />
+            {searchCategory !== '' && (
+              <TouchableOpacity onPress={() => setSearchCategory('')}>
+                <Ionicons name="close-circle" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.categoriesContainer}>
+            {filteredCategories?.map(category => (
+              <TouchableOpacity
+                key={category.id}
+                style={[
+                  styles.categoryItem,
+                  formData.category === category.id && styles.selectedCategory
+                ]}
+                onPress={() => onChange({ category: category.id })}
+              >
+                <Text style={[
+                  styles.categoryText,
+                  formData.category === category.id && styles.selectedCategoryText
+                ]}>
+                  {category.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
           
           <View style={styles.imageUploadContainer}>
@@ -297,6 +324,8 @@ const styles = StyleSheet.create({
       padding: 12,
       marginBottom: 15,
       fontSize: 16,
+      height: 50, // Ensures consistent height
+      width: '100%', // Matches width with searchInput
     },
     modalActions: {
       flexDirection: 'row',
@@ -483,5 +512,54 @@ const styles = StyleSheet.create({
     },
     disabledButton: {
       opacity: 0.5,
+    },
+    searchContainer: {
+      top: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    height: 50, // Ensures consistent height
+    },
+    searchInput: {
+      flex: 1, // Ensures it fills the remaining space
+      fontSize: 16,
+      marginLeft: 8,
+      height: '100%', // Ensures it matches the container's height
+      color: '#333', // Consistent text color
+    },
+    categoriesContainer: {
+      top: 50,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 16,
+    },
+    categoryItem: {
+      
+      backgroundColor: '#f5f5f5',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+    },
+    selectedCategory: {
+      
+      backgroundColor: '#2196F3',
+      borderColor: '#2196F3',
+    },
+    categoryText: {
+     
+      color: '#666',
+      fontSize: 14,
+    },
+    selectedCategoryText: {
+      
+      color: '#fff',
+      fontWeight: '600',
     },
   }); 
