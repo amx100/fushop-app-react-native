@@ -9,7 +9,9 @@ export type Product = {
   imagesUrl: string[]; // Dodajem iz grane 'main'
 };
 
-export type ProductFormData = Omit<Product, 'id'>;
+export type ProductFormData = Omit<Product, 'id'> & {
+  imagesUrl?: string[];
+};
 
 export type OrderStatus = 'Pending' | 'Completed' | 'Shipped' | 'InTransit';
 

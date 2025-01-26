@@ -6,13 +6,14 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { generateSlugFromTitle } from '../../utils/utils';
 
 type ProductModalProps = {
   visible: boolean;
   formData: ProductFormData;
   isEditing: boolean;
   onClose: () => void;
-  onSubmit: () => void;
+  onSubmit: (data: ProductFormData) => void;
   onChange: (data: Partial<ProductFormData>) => void;
   onPickImage: () => void;
   categories: Category[];
@@ -50,30 +51,63 @@ export function ProductModal({
     category.name.toLowerCase().includes(searchCategory.toLowerCase())
   );
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    console.log('Starting submit with formData:', formData);
+
     // Validation
     if (!formData.title.trim()) {
+      console.log('Validation failed: Missing title');
       alert('Please enter a title');
       return;
     }
     if (!formData.price || formData.price <= 0) {
+      console.log('Validation failed: Invalid price', formData.price);
       alert('Please enter a valid price');
       return;
     }
     if (!formData.maxQuantity || formData.maxQuantity <= 0) {
+      console.log('Validation failed: Invalid quantity', formData.maxQuantity);
       alert('Please enter a valid quantity');
       return;
     }
     if (!formData.category || formData.category === 0) {
+      console.log('Validation failed: Missing category', formData.category);
       alert('Please select a category');
       return;
     }
     if (!formData.heroImage) {
+      console.log('Validation failed: Missing hero image');
       alert('Please upload an image');
       return;
     }
 
-    onSubmit();
+    try {
+      // Generate unique slug if not editing
+      if (!isEditing) {
+        const uniqueSlug = generateSlugFromTitle(formData.title);
+        console.log('Generated unique slug:', uniqueSlug);
+        
+        // Create new formData object with the unique slug
+        const finalFormData = {
+          ...formData,
+          slug: uniqueSlug,
+          imagesUrl: formData.imagesUrl || [], // Ensure imagesUrl is defined
+        };
+        
+        console.log('Submitting with final form data:', finalFormData);
+        
+        // Call onSubmit directly with the final form data
+        onSubmit(finalFormData);
+      } else {
+        onSubmit(formData);
+      }
+      
+      // Close modal after successful submission
+      onClose();
+    } catch (error) {
+      console.error('Error in onSubmit:', error);
+      alert('Error creating product: ' + (error as Error).message);
+    }
   };
 
   return (
@@ -297,6 +331,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   modalTitle: {
+    top: 50,
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,

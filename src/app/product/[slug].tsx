@@ -28,9 +28,23 @@ const ProductDetails = () => {
 
   const [quantity, setQuantity] = useState(initialQuantity);
 
-  if (isLoading) return <ActivityIndicator />;
-  if (error) return <Text>Error: {error.message}</Text>;
-  if (!product) return <Redirect href='/404' />;
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>
+          {error ? error.message : 'Product not found'}
+        </Text>
+      </View>
+    );
+  }
 
   const increaseQuantity = () => {
     if (quantity < product.maxQuantity) {
@@ -216,5 +230,21 @@ const styles = StyleSheet.create({
     color: '#f00',
     textAlign: 'center',
     marginTop: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
   },
 });

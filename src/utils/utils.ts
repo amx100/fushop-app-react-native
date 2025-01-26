@@ -7,10 +7,14 @@ export const generateOrderSlug = () => {
 };
 
 export const generateSlugFromTitle = (title: string): string => {
-  return title
+  const randomString = nanoid(6);
+  const timestamp = new Date().getTime();
+  const baseSlug = title
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '') // Remove special characters
-    .replace(/\s+/g, '-') // Replace spaces with -
-    .replace(/-+/g, '-'); // Replace multiple - with single -
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
+
+  return `${baseSlug}-${randomString}-${timestamp}`;
 };

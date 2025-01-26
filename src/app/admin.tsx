@@ -200,6 +200,16 @@ export default function AdminDashboard() {
     product.slug.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleProductSubmit = async (productData: ProductFormData) => {
+    if (selectedProduct) {
+      await handleUpdateProduct(selectedProduct.id, productData);
+    } else {
+      await handleCreateProduct(productData);
+    }
+    setIsModalVisible(false);
+    resetForm();
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -327,15 +337,7 @@ export default function AdminDashboard() {
           setIsModalVisible(false);
           resetForm();
         }}
-        onSubmit={() => {
-          if (selectedProduct) {
-            handleUpdateProduct(selectedProduct.id, formData);
-          } else {
-            handleCreateProduct(formData);
-          }
-          setIsModalVisible(false);
-          resetForm();
-        }}
+        onSubmit={handleProductSubmit}
         onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
         onPickImage={pickImage}
         categories={categories || []}
