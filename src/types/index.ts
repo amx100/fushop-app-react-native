@@ -20,4 +20,14 @@ export type Order = {
   user: string;
   description: string | null;
   slug: string;
-}; 
+};
+
+export type Category = {
+  id: number;
+  name: string;
+  slug: string;
+  imageUrl: string;
+  products: number[] | null;
+};
+
+export type CategoryFormData = Omit<Category, 'id' | 'products'>; 

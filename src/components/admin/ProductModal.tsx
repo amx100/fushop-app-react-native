@@ -1,6 +1,9 @@
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { ProductFormData } from '../../types';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
+import { ProductFormData, Category } from '../../types';
 import RemoteImage from '../RemoteImage';
+import { Picker } from '@react-native-picker/picker';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabase';
 
 type ProductModalProps = {
   visible: boolean;
@@ -12,6 +15,21 @@ type ProductModalProps = {
   onPickImage: () => void;
 };
 
+// Add this function to fetch categories
+const useCategories = () => {
+  return useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('category')
+        .select('*');
+      
+      if (error) throw error;
+      return data as Category[];
+    }
+  });
+};
+
 export function ProductModal({ 
   visible, 
   formData, 
@@ -21,9 +39,11 @@ export function ProductModal({
   onChange,
   onPickImage 
 }: ProductModalProps) {
+  const { data: categories, isLoading } = useCategories();
+
   return (
     <Modal visible={visible} animationType="slide">
-      <View style={styles.modalContainer}>
+      <ScrollView style={styles.modalContainer}>
         <Text style={styles.modalTitle}>
           {isEditing ? 'Edit Product' : 'Create Product'}
         </Text>
@@ -37,26 +57,44 @@ export function ProductModal({
         
         <TextInput
           style={styles.input}
-          placeholder="Price"
-          value={formData.price.toString()}
+          placeholder="Price:10"
+          value={formData.price ? formData.price.toString() : ''}
           onChangeText={(text) => onChange({ price: Number(text) || 0 })}
           keyboardType="numeric"
         />
         
         <TextInput
           style={styles.input}
-          placeholder="Quantity"
-          value={formData.maxQuantity.toString()}
+          placeholder="Quantity:10"
+          value={formData.maxQuantity ? formData.maxQuantity.toString() : ''}
           onChangeText={(text) => onChange({ maxQuantity: Number(text) || 0 })}
           keyboardType="numeric"
         />
+
+        <View style={styles.pickerContainer}>
+          <Text style={styles.pickerLabel}>Category</Text>
+          <Picker
+            selectedValue={formData.category}
+            style={styles.picker}
+            onValueChange={(itemValue) => onChange({ category: itemValue })}
+          >
+            <Picker.Item label="Select a category" value={0} />
+            {categories?.map((category) => (
+              <Picker.Item 
+                key={category.id} 
+                label={category.name} 
+                value={category.id} 
+              />
+            ))}
+          </Picker>
+        </View>
         
         <View style={styles.imageUploadContainer}>
           {formData.heroImage ? (
-            <RemoteImage 
-              path={formData.heroImage}
-              fallback="https://placehold.co/200x150"
+            <Image 
+              source={{ uri: formData.heroImage }} 
               style={styles.previewImage}
+              resizeMode="cover"
             />
           ) : (
             <View style={styles.imagePlaceholder}>
@@ -67,7 +105,7 @@ export function ProductModal({
           <TouchableOpacity
             style={[
               styles.imageUploadButton,
-              formData.heroImage && styles.changeImageButton
+              formData.heroImage ? styles.changeImageButton : null
             ]}
             onPress={onPickImage}
           >
@@ -76,7 +114,7 @@ export function ProductModal({
             </Text>
           </TouchableOpacity>
         </View>
-
+        
         <View style={styles.modalActions}>
           <TouchableOpacity
             style={[styles.modalButton, styles.cancelButton]}
@@ -94,7 +132,7 @@ export function ProductModal({
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </Modal>
   );
 }
@@ -386,5 +424,20 @@ const styles = StyleSheet.create({
     statusButtonText: {
       color: '#fff',
       fontWeight: 'bold',
+    },
+    pickerContainer: {
+      top: 50,
+      marginBottom: 15,
+    },
+    pickerLabel: {
+      fontSize: 16,
+      color: '#666',
+      marginBottom: 5,
+    },
+    picker: {
+      borderWidth: 1,
+      borderColor: '#ddd',
+      borderRadius: 8,
+      backgroundColor: '#fff',
     },
   }); 
