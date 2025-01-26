@@ -373,7 +373,6 @@ export default function AdminDashboard() {
 }
 
 const styles = StyleSheet.create({
-  // Styles remain largely the same, with minor adjustments
   container: {
     flex: 1,
     padding: 20,
@@ -456,4 +455,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
     padding: 15,
     borderRadius: 8,
-    align
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    backgroundColor: '#fff',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    marginLeft: 8,
+    color: '#333',
+  },
+});
