@@ -41,98 +41,133 @@ export function ProductModal({
 }: ProductModalProps) {
   const { data: categories, isLoading } = useCategories();
 
+  const handleSubmit = () => {
+    console.log('Submit clicked', formData); // Debug log
+
+    // Validacija
+    if (!formData.title.trim()) {
+      alert('Please enter a title');
+      return;
+    }
+    if (!formData.price || formData.price <= 0) {
+      alert('Please enter a valid price');
+      return;
+    }
+    if (!formData.maxQuantity || formData.maxQuantity <= 0) {
+      alert('Please enter a valid quantity');
+      return;
+    }
+    if (!formData.category || formData.category === 0) {
+      alert('Please select a category');
+      return;
+    }
+    if (!formData.heroImage) {
+      alert('Please upload an image');
+      return;
+    }
+
+    onSubmit();
+  };
+
+  const handleClose = () => {
+    console.log('Close clicked'); // Debug log
+    onClose();
+  };
+
   return (
     <Modal visible={visible} animationType="slide">
-      <ScrollView style={styles.modalContainer}>
-        <Text style={styles.modalTitle}>
-          {isEditing ? 'Edit Product' : 'Create Product'}
-        </Text>
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Title"
-          value={formData.title}
-          onChangeText={(text) => onChange({ title: text })}
-        />
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Price:10"
-          value={formData.price ? formData.price.toString() : ''}
-          onChangeText={(text) => onChange({ price: Number(text) || 0 })}
-          keyboardType="numeric"
-        />
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Quantity:10"
-          value={formData.maxQuantity ? formData.maxQuantity.toString() : ''}
-          onChangeText={(text) => onChange({ maxQuantity: Number(text) || 0 })}
-          keyboardType="numeric"
-        />
-
-        <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Category</Text>
-          <Picker
-            selectedValue={formData.category}
-            style={styles.picker}
-            onValueChange={(itemValue) => onChange({ category: itemValue })}
-          >
-            <Picker.Item label="Select a category" value={0} />
-            {categories?.map((category) => (
-              <Picker.Item 
-                key={category.id} 
-                label={category.name} 
-                value={category.id} 
-              />
-            ))}
-          </Picker>
-        </View>
-        
-        <View style={styles.imageUploadContainer}>
-          {formData.heroImage ? (
-            <Image 
-              source={{ uri: formData.heroImage }} 
-              style={styles.previewImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Text style={styles.placeholderText}>No image selected</Text>
-            </View>
-          )}
+      <View style={styles.modalContainer}>
+        <ScrollView style={styles.scrollContainer}>
+          <Text style={styles.modalTitle}>
+            {isEditing ? 'Edit Product' : 'Create Product'}
+          </Text>
           
-          <TouchableOpacity
-            style={[
-              styles.imageUploadButton,
-              formData.heroImage ? styles.changeImageButton : null
-            ]}
-            onPress={onPickImage}
-          >
-            <Text style={styles.buttonText}>
-              {formData.heroImage ? 'Change Image' : 'Upload Image'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        
+          <TextInput
+            style={styles.input}
+            placeholder="Title"
+            value={formData.title}
+            onChangeText={(text) => onChange({ title: text })}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Price:10"
+            value={formData.price ? formData.price.toString() : ''}
+            onChangeText={(text) => onChange({ price: Number(text) || 0 })}
+            keyboardType="numeric"
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Quantity:10"
+            value={formData.maxQuantity ? formData.maxQuantity.toString() : ''}
+            onChangeText={(text) => onChange({ maxQuantity: Number(text) || 0 })}
+            keyboardType="numeric"
+          />
+
+          <View style={styles.pickerContainer}>
+            <Text style={styles.pickerLabel}>Category</Text>
+            <Picker
+              selectedValue={formData.category}
+              style={styles.picker}
+              onValueChange={(itemValue) => onChange({ category: itemValue })}
+            >
+              <Picker.Item label="Select a category" value={0} />
+              {categories?.map((category) => (
+                <Picker.Item 
+                  key={category.id} 
+                  label={category.name} 
+                  value={category.id} 
+                />
+              ))}
+            </Picker>
+          </View>
+          
+          <View style={styles.imageUploadContainer}>
+            {formData.heroImage ? (
+              <Image 
+                source={{ uri: formData.heroImage }} 
+                style={styles.previewImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Text style={styles.placeholderText}>No image selected</Text>
+              </View>
+            )}
+            
+            <TouchableOpacity
+              style={[
+                styles.imageUploadButton,
+                formData.heroImage ? styles.changeImageButton : null
+              ]}
+              onPress={onPickImage}
+            >
+              <Text style={styles.buttonText}>
+                {formData.heroImage ? 'Change Image' : 'Upload Image'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
         <View style={styles.modalActions}>
           <TouchableOpacity
             style={[styles.modalButton, styles.cancelButton]}
-            onPress={onClose}
+            onPress={handleClose}
           >
             <Text style={styles.buttonText}>Cancel</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
             style={[styles.modalButton, styles.saveButton]}
-            onPress={onSubmit}
+            onPress={handleSubmit}
           >
             <Text style={styles.buttonText}>
               {isEditing ? 'Update' : 'Create'}
             </Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
     </Modal>
   );
 }
@@ -242,8 +277,11 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
       flex: 1,
-      padding: 20,
       backgroundColor: '#fff',
+    },
+    scrollContainer: {
+      flex: 1,
+      padding: 20,
     },
     modalTitle: {
       top: 50,
@@ -263,10 +301,13 @@ const styles = StyleSheet.create({
     modalActions: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 20,
+      padding: 20,
+      paddingBottom: 40, // Add extra padding at bottom
+      backgroundColor: '#fff',
+      borderTopWidth: 1,
+      borderTopColor: '#eee',
     },
     modalButton: {
-      top:50,
       padding: 15,
       borderRadius: 8,
       flex: 0.48,
@@ -439,5 +480,8 @@ const styles = StyleSheet.create({
       borderColor: '#ddd',
       borderRadius: 8,
       backgroundColor: '#fff',
+    },
+    disabledButton: {
+      opacity: 0.5,
     },
   }); 

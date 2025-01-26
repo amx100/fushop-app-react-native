@@ -18,20 +18,22 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { CategoryList } from '../components/admin/CategoryList';
 
+const initialFormData: ProductFormData = {
+  title: '',
+  price: 0,
+  maxQuantity: 0,
+  heroImage: '',
+  category: 0, // Initial category value
+  slug: ''
+};
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'categories'>('products');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [formData, setFormData] = useState<ProductFormData>({
-    title: '',
-    slug: '',
-    price: 0,
-    heroImage: '',
-    category: 1,
-    maxQuantity: 0,
-  });
+  const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [previewImage, setPreviewImage] = useState<string | null>(null); // State for image preview
   const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({
     name: '',
@@ -65,14 +67,7 @@ export default function AdminDashboard() {
 
 
   const resetForm = () => {
-    setFormData({
-      title: '',
-      slug: '',
-      price: 0,
-      heroImage: '',
-      category: 1,
-      maxQuantity: 0,
-    });
+    setFormData(initialFormData);
     setSelectedProduct(null);
     setPreviewImage(null); // Reset preview image when form is reset
   };
@@ -293,10 +288,12 @@ export default function AdminDashboard() {
         formData={formData}
         isEditing={!!selectedProduct}
         onClose={() => {
+          console.log('onClose called'); // Debug log
           setIsModalVisible(false);
           resetForm();
         }}
         onSubmit={() => {
+          console.log('onSubmit called', selectedProduct?.id, formData); // Debug log
           if (selectedProduct) {
             handleUpdateProduct(selectedProduct.id, formData);
           } else {
@@ -306,7 +303,7 @@ export default function AdminDashboard() {
           resetForm();
         }}
         onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
-        onPickImage={() => pickImage()}
+        onPickImage={pickImage}
       />
 
       <CategoryModal
