@@ -1,4 +1,4 @@
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { ProductFormData } from '../../types';
 import RemoteImage from '../RemoteImage';
 
@@ -53,10 +53,10 @@ export function ProductModal({
         
         <View style={styles.imageUploadContainer}>
           {formData.heroImage ? (
-            <RemoteImage 
-              path={formData.heroImage}
-              fallback="https://placehold.co/200x150"
+            <Image 
+              source={{ uri: formData.heroImage }} 
               style={styles.previewImage}
+              resizeMode="cover"
             />
           ) : (
             <View style={styles.imagePlaceholder}>
@@ -67,7 +67,7 @@ export function ProductModal({
           <TouchableOpacity
             style={[
               styles.imageUploadButton,
-              formData.heroImage && styles.changeImageButton
+              formData.heroImage ? styles.changeImageButton : null
             ]}
             onPress={onPickImage}
           >
@@ -76,7 +76,7 @@ export function ProductModal({
             </Text>
           </TouchableOpacity>
         </View>
-
+        
         <View style={styles.modalActions}>
           <TouchableOpacity
             style={[styles.modalButton, styles.cancelButton]}

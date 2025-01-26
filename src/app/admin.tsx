@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { ProductList } from '../components/admin/ProductList';
 import { OrderList } from '../components/admin/OrderList';
 import { ProductModal } from '../components/admin/ProductModal';
@@ -10,6 +10,10 @@ import { useAdminProducts } from '../hooks/useAdminProducts';
 import { useAdminOrders } from '../hooks/useAdminOrders';
 import { supabase } from '../lib/supabase';
 import { Toast } from 'react-native-toast-notifications';
+import { randomUUID } from 'expo-crypto';
+import { decode } from 'base64-arraybuffer';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -18,7 +22,6 @@ export default function AdminDashboard() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>({
-    
     title: '',
     slug: '',
     imagesUrl: [],
@@ -27,6 +30,7 @@ export default function AdminDashboard() {
     category: 1,
     maxQuantity: 0,
   });
+  const [previewImage, setPreviewImage] = useState<string | null>(null); // State for image preview
   
   const {
     products,
@@ -45,14 +49,15 @@ export default function AdminDashboard() {
   const resetForm = () => {
     setFormData({
       title: '',
-    slug: '',
-    imagesUrl: [],
-    price: 0,
-    heroImage: '',
-    category: 1,
-    maxQuantity: 0,
+      slug: '',
+      imagesUrl: [],
+      price: 0,
+      heroImage: '',
+      category: 1,
+      maxQuantity: 0,
     });
     setSelectedProduct(null);
+    setPreviewImage(null); // Reset preview image when form is reset
   };
 
   const openEditModal = (product: Product) => {
@@ -66,19 +71,66 @@ export default function AdminDashboard() {
       category: product.category,
       maxQuantity: product.maxQuantity,
     });
+    setPreviewImage(product.heroImage); // Set preview image to existing hero image
     setIsModalVisible(true);
   };
 
-const pickImage = async (imageType: string, isHero: boolean) => {
-  const imageUrl = await pickImageBase();
-  if (imageUrl) {
-    if (isHero) {
-      setFormData(prev => ({ ...prev, heroImage: imageUrl }));
-    } else {
-      setFormData(prev => ({ ...prev, imagesUrl: [...prev.imagesUrl, imageUrl] }));
+  const uploadImage = async (uri: string) => {
+    if (!uri?.startsWith('file://')) {
+      return null;
     }
-  }
-};
+  
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, { 
+        encoding: FileSystem.EncodingType.Base64 
+      });
+      const filePath = `${randomUUID()}.png`;
+      const contentType = 'image/png';
+  
+      const { data, error } = await supabase.storage
+        .from('app-images')
+        .upload(filePath, decode(base64), { contentType });
+  
+      if (error) throw error;
+  
+      if (data) {
+        const { data: { publicUrl } } = supabase.storage
+          .from('app-images')
+          .getPublicUrl(data.path);
+        return publicUrl;
+      }
+    } catch (error) {
+      console.log('Error uploading image:', error);
+      return null;
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Camera roll permissions are required!');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        const uploadedUrl = await uploadImage(result.assets[0].uri);
+        if (uploadedUrl) {
+          setFormData(prev => ({ ...prev, heroImage: uploadedUrl }));
+          Toast.show('Image uploaded successfully', { type: 'success' });
+        }
+      }
+    } catch (error: any) {
+      alert('Error picking image: ' + error.message);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -157,18 +209,24 @@ const pickImage = async (imageType: string, isHero: boolean) => {
         }}
         onSubmit={() => {
           if (selectedProduct) {
-            // Dodajte `id` kada se ažurira proizvod
             handleUpdateProduct(selectedProduct.id, formData);
           } else {
-            // Kreiranje novog proizvoda
             handleCreateProduct(formData);
           }
           setIsModalVisible(false);
           resetForm();
         }}
         onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
-        onPickImage={pickImage}
+        onPickImage={() => pickImage()}
       />
+
+      {/* Preview Image */}
+      {previewImage && (
+        <View style={styles.previewContainer}>
+          <Text style={styles.previewTitle}>Image Preview:</Text>
+          <Image source={{ uri: previewImage }} style={styles.previewImage} />
+        </View>
+      )}
     </View>
   );
 }
@@ -229,5 +287,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  previewContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  previewTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  previewImage: {
+    width: 150,
+    height: 150,
+    borderRadius: 8,
+    resizeMode: 'cover',
   },
 });

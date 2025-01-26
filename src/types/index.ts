@@ -1,12 +1,14 @@
 export type Product = {
   id: number;
   title: string;
+  slug: string;
+  imagesUrl: string[]; 
   price: number;
-  maxQuantity: number;
   heroImage: string;
   category: number;
-  slug: string;
+  maxQuantity: number;
 };
+
 
 export type ProductFormData = Omit<Product, 'id'>;
 
