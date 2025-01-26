@@ -1,37 +1,53 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
 import { ProductList } from '../components/admin/ProductList';
 import { OrderList } from '../components/admin/OrderList';
 import { ProductModal } from '../components/admin/ProductModal';
+import { CategoryModal } from '../components/admin/CategoryModal';
 import { useAuth } from '../providers/auth-provider';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Product, ProductFormData, Order, OrderStatus } from '../types';
+import { Product, ProductFormData, Order, OrderStatus, Category, CategoryFormData } from '../types';
 import { useAdminProducts } from '../hooks/useAdminProducts';
 import { useAdminOrders } from '../hooks/useAdminOrders';
+import { useAdminCategories } from '../hooks/useAdminCategories';
 import { supabase } from '../lib/supabase';
 import { Toast } from 'react-native-toast-notifications';
 import { randomUUID } from 'expo-crypto';
 import { decode } from 'base64-arraybuffer';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { CategoryList } from '../components/admin/CategoryList';
+import { Ionicons } from '@expo/vector-icons';
+
+const initialFormData: ProductFormData = {
+  title: '',
+  price: 0,
+  maxQuantity: 0,
+  heroImage: '',
+  category: 0,
+  slug: '',
+  imagesUrl: [],
+};
+
+const initialCategoryFormData: CategoryFormData = {
+  name: '',
+  slug: '',
+  imageUrl: '',
+};
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'categories'>('products');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [formData, setFormData] = useState<ProductFormData>({
-    title: '',
-    slug: '',
-    imagesUrl: [],
-    price: 0,
-    heroImage: '',
-    category: 1,
-    maxQuantity: 0,
-  });
-  const [previewImage, setPreviewImage] = useState<string | null>(null); // State for image preview
-  
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [formData, setFormData] = useState<ProductFormData>(initialFormData);
+  const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>(initialCategoryFormData);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
   const {
     products,
     isLoading: productsLoading,
@@ -40,39 +56,30 @@ export default function AdminDashboard() {
     handleDeleteProduct,
     pickImage: pickImageBase,
   } = useAdminProducts();
+
   const {
     orders,
     isLoading: ordersLoading,
     updateOrderStatus,
   } = useAdminOrders();
 
+  const {
+    categories,
+    isLoading: categoriesLoading,
+    handleCreateCategory,
+    handleUpdateCategory,
+    handleDeleteCategory,
+  } = useAdminCategories();
+
   const resetForm = () => {
-    setFormData({
-      title: '',
-      slug: '',
-      imagesUrl: [],
-      price: 0,
-      heroImage: '',
-      category: 1,
-      maxQuantity: 0,
-    });
+    setFormData(initialFormData);
     setSelectedProduct(null);
-    setPreviewImage(null); // Reset preview image when form is reset
+    setPreviewImage(null);
   };
 
-  const openEditModal = (product: Product) => {
-    setSelectedProduct(product);
-    setFormData({
-      title: product.title,
-      slug: product.slug,
-      imagesUrl: product.imagesUrl,
-      price: product.price,
-      heroImage: product.heroImage,
-      category: product.category,
-      maxQuantity: product.maxQuantity,
-    });
-    setPreviewImage(product.heroImage); // Set preview image to existing hero image
-    setIsModalVisible(true);
+  const resetCategoryForm = () => {
+    setCategoryFormData(initialCategoryFormData);
+    setSelectedCategory(null);
   };
 
   const uploadImage = async (uri: string) => {
@@ -132,6 +139,33 @@ export default function AdminDashboard() {
     }
   };
 
+  const pickCategoryImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Camera roll permissions are required!');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        const uploadedUrl = await uploadImage(result.assets[0].uri);
+        if (uploadedUrl) {
+          setCategoryFormData(prev => ({ ...prev, imageUrl: uploadedUrl }));
+          Toast.show('Image uploaded successfully', { type: 'success' });
+        }
+      }
+    } catch (error: any) {
+      alert('Error picking image: ' + error.message);
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -145,6 +179,26 @@ export default function AdminDashboard() {
       });
     }
   };
+
+  const openEditModal = (product: Product) => {
+    setSelectedProduct(product);
+    setFormData({
+      title: product.title,
+      slug: product.slug,
+      imagesUrl: product.imagesUrl,
+      price: product.price,
+      heroImage: product.heroImage,
+      category: product.category,
+      maxQuantity: product.maxQuantity,
+    });
+    setPreviewImage(product.heroImage);
+    setIsModalVisible(true);
+  };
+
+  const filteredProducts = products?.filter(product => 
+    product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.slug.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <View style={styles.container}>
@@ -166,6 +220,11 @@ export default function AdminDashboard() {
           style={[styles.tab, activeTab === 'products' && styles.activeTab]}
           onPress={() => setActiveTab('products')}
         >
+          <Ionicons 
+            name="cube" 
+            size={20} 
+            color={activeTab === 'products' ? '#fff' : '#666'} 
+          />
           <Text style={[styles.tabText, activeTab === 'products' && styles.activeTabText]}>
             Products
           </Text>
@@ -174,29 +233,90 @@ export default function AdminDashboard() {
           style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
           onPress={() => setActiveTab('orders')}
         >
+          <Ionicons 
+            name="cart" 
+            size={20} 
+            color={activeTab === 'orders' ? '#fff' : '#666'} 
+          />
           <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
             Orders
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'categories' && styles.activeTab]}
+          onPress={() => setActiveTab('categories')}
+        >
+          <Ionicons 
+            name="folder" 
+            size={20} 
+            color={activeTab === 'categories' ? '#fff' : '#666'} 
+          />
+          <Text style={[styles.tabText, activeTab === 'categories' && styles.activeTabText]}>
+            Categories
           </Text>
         </TouchableOpacity>
       </View>
 
       {activeTab === 'products' ? (
-        <ProductList
-          products={products || []}
-          isLoading={productsLoading}
-          onEdit={openEditModal}
-          onDelete={handleDeleteProduct}
-          onCreateNew={() => {
-            resetForm();
-            setIsModalVisible(true);
-          }}
-        />
-      ) : (
+        <>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#666" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#666"
+            />
+            {searchQuery !== '' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <ProductList
+            products={filteredProducts || []}
+            isLoading={productsLoading}
+            onEdit={openEditModal}
+            onDelete={handleDeleteProduct}
+            onCreateNew={() => {
+              resetForm();
+              setIsModalVisible(true);
+            }}
+          />
+        </>
+      ) : activeTab === 'orders' ? (
         <OrderList
           orders={orders || []}
           isLoading={ordersLoading}
           onUpdateStatus={(orderId: number, status: OrderStatus) => updateOrderStatus(orderId, status)}
         />
+      ) : (
+        <View style={styles.categoryContainer}>
+          <TouchableOpacity 
+            style={styles.createButton}
+            onPress={() => {
+              resetCategoryForm();
+              setIsCategoryModalVisible(true);
+            }}
+          >
+            <Text style={styles.buttonText}>Create New Category</Text>
+          </TouchableOpacity>
+          <CategoryList
+            categories={categories || []}
+            isLoading={categoriesLoading}
+            onEdit={(category) => {
+              setSelectedCategory(category);
+              setCategoryFormData({
+                name: category.name,
+                slug: category.slug,
+                imageUrl: category.imageUrl,
+              });
+              setIsCategoryModalVisible(true);
+            }}
+            onDelete={(id) => handleDeleteCategory(id)}
+          />
+        </View>
       )}
 
       <ProductModal
@@ -217,10 +337,31 @@ export default function AdminDashboard() {
           resetForm();
         }}
         onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
-        onPickImage={() => pickImage()}
+        onPickImage={pickImage}
+        categories={categories || []}
       />
 
-      {/* Preview Image */}
+      <CategoryModal
+        visible={isCategoryModalVisible}
+        formData={categoryFormData}
+        isEditing={!!selectedCategory}
+        onClose={() => {
+          setIsCategoryModalVisible(false);
+          resetCategoryForm();
+        }}
+        onSubmit={() => {
+          if (selectedCategory) {
+            handleUpdateCategory(selectedCategory.id, categoryFormData);
+          } else {
+            handleCreateCategory(categoryFormData);
+          }
+          setIsCategoryModalVisible(false);
+          resetCategoryForm();
+        }}
+        onChange={(data) => setCategoryFormData(prev => ({ ...prev, ...data }))}
+        onPickImage={pickCategoryImage}
+      />
+
       {previewImage && (
         <View style={styles.previewContainer}>
           <Text style={styles.previewTitle}>Image Preview:</Text>
@@ -232,6 +373,7 @@ export default function AdminDashboard() {
 }
 
 const styles = StyleSheet.create({
+  // Styles remain largely the same, with minor adjustments
   container: {
     flex: 1,
     padding: 20,
@@ -259,17 +401,20 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    flexDirection: 'row',
     padding: 15,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#f5f5f5',
     marginHorizontal: 5,
     borderRadius: 8,
+    gap: 8,
   },
   activeTab: {
     backgroundColor: '#2196F3',
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
   },
   activeTabText: {
@@ -303,4 +448,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     resizeMode: 'cover',
   },
-});
+  categoryContainer: {
+    flex: 1,
+    padding: 10,
+  },
+  createButton: {
+    backgroundColor: '#2196F3',
+    padding: 15,
+    borderRadius: 8,
+    align
