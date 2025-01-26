@@ -292,4 +292,59 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
+  scrollContainer: {
+    flex: 1,
+    width: '100%',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  imageUploadContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  previewImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  imagePlaceholder: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  placeholderText: {
+    color: '#666',
+    fontSize: 16,
+  },
+  imageUploadButton: {
+    backgroundColor: '#2196F3',
+    padding: 12,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  changeImageButton: {
+    backgroundColor: '#4CAF50',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    backgroundColor: '#f44336',
+  },
+  saveButton: {
+    backgroundColor: '#4CAF50',
+  },
 });
