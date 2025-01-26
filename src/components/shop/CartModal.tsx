@@ -8,8 +8,6 @@ interface CartModalProps {
   onClose: () => void;
 }
 
-
-
 export function CartModal({ visible, onClose }: CartModalProps) {
   const { cart, removeFromCart, updateQuantity } = useCart();
 
@@ -23,6 +21,22 @@ export function CartModal({ visible, onClose }: CartModalProps) {
     updateQuantity(product, quantity);
   };
 
+  if (!Array.isArray(cart) || cart.length === 0) {
+    return (
+      <Modal visible={visible} animationType="slide">
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Your Cart</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={styles.closeButton}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.emptyCart}>Your cart is empty</Text>
+        </View>
+      </Modal>
+    );
+  }
+
   return (
     <Modal visible={visible} animationType="slide">
       <View style={styles.container}>
@@ -32,17 +46,18 @@ export function CartModal({ visible, onClose }: CartModalProps) {
             <Text style={styles.closeButton}>Close</Text>
           </TouchableOpacity>
         </View>
-
         <FlatList
           data={cart}
-          keyExtractor={(item) => item.product?.id?.toString() || Math.random().toString()}
-          renderItem={({ item }) => (
-            item.product ? (
+          keyExtractor={(item) => item?.product?.id?.toString() || Math.random().toString()}
+          renderItem={({ item }) => {
+            if (!item?.product) return null;
+            
+            return (
               <View style={styles.cartItem}>
                 <View style={styles.productInfo}>
-                  <Text style={styles.productTitle}>{item.product.title}</Text>
+                  <Text style={styles.productTitle}>{item.product?.title}</Text>
                   <Text style={styles.productPrice}>
-                    ${(item.product.price * item.quantity).toFixed(2)}
+                    ${(item.product?.price || 0 * item.quantity).toFixed(2)}
                   </Text>
                 </View>
 
@@ -71,12 +86,12 @@ export function CartModal({ visible, onClose }: CartModalProps) {
                   </TouchableOpacity>
                 </View>
               </View>
-            ) : null
-          )}
-          ListEmptyComponent={() => (
-            <Text style={styles.emptyCart}>Your cart is empty</Text>
-          )}
+            );
+          }}
         />
+        <Text style={styles.total}>
+          Total: ${cart.reduce((acc: number, item) => acc + (item?.product?.price || 0) * (item?.quantity || 0), 0).toFixed(2)}
+        </Text>
       </View>
     </Modal>
   );
@@ -156,6 +171,12 @@ const styles = StyleSheet.create({
       fontSize: 16,
       color: '#666',
       textAlign: 'center',
+      marginTop: 20,
+    },
+    total: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      textAlign: 'right',
       marginTop: 20,
     },
   });
