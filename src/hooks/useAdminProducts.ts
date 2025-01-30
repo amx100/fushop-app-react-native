@@ -17,15 +17,26 @@ export function useAdminProducts() {
     queryFn: async () => {
       const { data: productsData, error: productsError } = await supabase
         .from('product')
-        .select('*, product_size(*)')
+        .select(`
+          *,
+          product_size:product_size(
+            id,
+            quantity,
+            size_id,
+            sizes:sizes(value)
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (productsError) throw productsError;
 
       return productsData.map(product => ({
         ...product,
-        sizes: product.product_size
-      })) as Product[];
+        sizes: product.product_size.map((ps: any) => ({
+          ...ps,
+          size: ps.sizes.value
+        }))
+      }));
     },
   });
 
@@ -108,7 +119,7 @@ export function useAdminProducts() {
       if (formData.sizes && formData.sizes.length > 0) {
         const sizesData = formData.sizes.map(size => ({
           product_id: productData.id,
-          size: size.size,
+          size_id: size.size_id,
           quantity: size.quantity
         }));
 
@@ -152,7 +163,7 @@ export function useAdminProducts() {
 
         const sizesData = formData.sizes.map(size => ({
           product_id: id,
-          size: size.size,
+          size_id: size.size_id,
           quantity: size.quantity
         }));
 

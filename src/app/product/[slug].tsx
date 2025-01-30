@@ -47,7 +47,7 @@ const ProductDetails = () => {
       </View>
     );
   }
-  const getMaxQuantityForSize = (size: SizeType) => {
+  const getMaxQuantityForSize = (size: string) => {
     const typedProduct = product as Product;
     const sizeData = typedProduct.sizes?.find(s => s.size === size);
     return sizeData?.quantity || 0;
@@ -99,6 +99,16 @@ const ProductDetails = () => {
       return;
     }
 
+    const sizeData = product.sizes?.find((s: { size: string }) => s.size === selectedSize);
+    if (!sizeData) {
+      toast.show('Selected size not found', {
+        type: 'error',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+
     const maxQuantity = getMaxQuantityForSize(selectedSize);
     if (quantity > maxQuantity) {
       toast.show(`Cannot add ${quantity} items. Only ${maxQuantity} available in size ${selectedSize}`, {
@@ -117,7 +127,8 @@ const ProductDetails = () => {
       price: product.price,
       quantity,
       size: selectedSize,
-      maxQuantity: getMaxQuantityForSize(selectedSize)
+      size_id: sizeData.size_id,
+      maxQuantity: maxQuantity
     });
     
     toast.show('Added to cart', {
@@ -150,7 +161,7 @@ const ProductDetails = () => {
           <View style={styles.sizeButtons}>
             {product.sizes?.map((sizeData: ProductSize) => (
               <TouchableOpacity
-                key={sizeData.size}
+                key={`${product.id}-${sizeData.size_id}`}
                 style={[
                   styles.sizeButton,
                   selectedSize === sizeData.size && styles.selectedSizeButton,
@@ -158,7 +169,7 @@ const ProductDetails = () => {
                 ]}
                 onPress={() => {
                   if (sizeData.quantity > 0) {
-                    setSelectedSize(sizeData.size);
+                    setSelectedSize(sizeData.size as SizeType);
                     setQuantity(0);
                   }
                 }}
@@ -181,7 +192,7 @@ const ProductDetails = () => {
 
         <FlatList
           data={product.imagesUrl}
-          keyExtractor={(item, index) => index.toString()}
+          keyExtractor={(item, index) => `${product.id}-image-${index}`}
           renderItem={({ item }) => (
             <Image source={{ uri: item }} style={styles.image} />
           )}

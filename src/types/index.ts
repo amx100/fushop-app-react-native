@@ -10,10 +10,7 @@ export type Product = {
 };
 
 export type ProductFormData = Omit<Product, 'id'> & {
-  sizes?: {
-    size: SizeType;
-    quantity: number;
-  }[];
+  sizes?: ProductSize[];
 };
 
 export type OrderStatus = 'Pending' | 'Completed' | 'Shipped' | 'InTransit';
@@ -43,7 +40,8 @@ export type SizeType = 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 export type ProductSize = {
   id: number;
   product_id: number;
-  size: SizeType;
+  size_id: number;
+  size?: string; // For display purposes
   quantity: number;
   created_at: string;
 };
@@ -55,7 +53,8 @@ export interface CartItem {
   name: string;
   price: number;
   quantity: number;
-  size: SizeType;
+  size: string;
+  size_id: number;
   maxQuantity: number;
 }
 

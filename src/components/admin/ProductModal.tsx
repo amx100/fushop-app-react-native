@@ -36,6 +36,12 @@ const useCategories = () => {
   });
 };
 
+interface Size {
+  id: number;
+  value: string;
+  created_at: string;
+}
+
 export function ProductModal({ 
   visible, 
   formData, 
@@ -48,6 +54,21 @@ export function ProductModal({
 }: ProductModalProps) {
   const { data: allCategories, isLoading } = useCategories();
   const [searchCategory, setSearchCategory] = useState('');
+  const [newSize, setNewSize] = useState<string>('');
+  const [newQuantity, setNewQuantity] = useState<string>('');
+  const [sizeError, setSizeError] = useState<string>('');
+  const { data: availableSizes } = useQuery({
+    queryKey: ['sizes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sizes')
+        .select('*')
+        .order('value');
+      
+      if (error) throw error;
+      return data as Size[];
+    }
+  });
 
   const filteredCategories = allCategories?.filter(category =>
     category.name.toLowerCase().includes(searchCategory.toLowerCase())
@@ -69,13 +90,72 @@ export function ProductModal({
       onChange({ sizes: newSizes });
     } else if (quantity > 0) {
       // Add new size
-      onChange({ sizes: [...currentSizes, { size, quantity, id: 0, product_id: 0, created_at: '' }] });
+      onChange({ 
+        sizes: [
+          ...currentSizes, 
+          { 
+            size_id: availableSizes?.find(s => s.value === size)?.id || 0,
+            size,
+            quantity, 
+            id: 0,
+            product_id: 0,
+            created_at: ''
+          }
+        ] 
+      });
     }
   };
 
 
   const getSizeQuantity = (size: SizeType): number => {
     return formData.sizes?.find(s => s.size === size)?.quantity || 0;
+  };
+
+  const handleAddSize = () => {
+    if (!newSize.trim()) {
+      setSizeError('Size cannot be empty');
+      return;
+    }
+
+    const quantity = parseInt(newQuantity);
+    if (isNaN(quantity) || quantity < 0) {
+      setSizeError('Please enter a valid quantity');
+      return;
+    }
+
+    // Find the size object from availableSizes
+    const selectedSize = availableSizes?.find(s => s.value === newSize);
+    if (!selectedSize) {
+      setSizeError('Invalid size selected');
+      return;
+    }
+
+    // Check if size already exists
+    if (formData.sizes?.some(s => s.size_id === selectedSize.id)) {
+      setSizeError('This size already exists');
+      return;
+    }
+
+    const currentSizes = formData.sizes || [];
+    onChange({
+      sizes: [...currentSizes, { 
+        size_id: selectedSize.id,
+        size: selectedSize.value, // Keep this for display purposes
+        quantity,
+        id: 0,
+        product_id: 0,
+        created_at: ''
+      }]
+    });
+
+    setNewSize('');
+    setNewQuantity('');
+    setSizeError('');
+  };
+
+  const handleRemoveSize = (sizeToRemove: string) => {
+    const updatedSizes = formData.sizes?.filter(s => s.size !== sizeToRemove) || [];
+    onChange({ sizes: updatedSizes });
   };
 
   const handleSubmit = async () => {
@@ -162,20 +242,55 @@ export function ProductModal({
           />
           {/* Size Management Section */}
           <View style={styles.sizesContainer}>
-            <Text style={styles.sectionTitle}>Sizes and Quantities</Text>
-            <View style={styles.sizesGrid}>
-              {SIZES.map((size) => (
-                <View key={size} style={styles.sizeItem}>
-                  <Text style={styles.sizeLabel}>{size}</Text>
-                  <TextInput
-                    style={styles.quantityInput}
-                    value={getSizeQuantity(size).toString()}
-                    onChangeText={(text) => 
-                      handleSizeQuantityChange(size, parseInt(text) || 0)
-                    }
-                    keyboardType="numeric"
-                    placeholder="0"
+            <Text style={styles.sectionTitle}>Add Sizes and Quantities</Text>
+            
+            <View style={styles.sizeInputContainer}>
+              <Picker
+                selectedValue={newSize}
+                onValueChange={setNewSize}
+                style={styles.sizePicker}
+              >
+                <Picker.Item label="Select a size" value="" />
+                {availableSizes?.map(size => (
+                  <Picker.Item 
+                    key={size.id} 
+                    label={size.value} 
+                    value={size.value}
                   />
+                ))}
+              </Picker>
+              
+              <TextInput
+                style={styles.quantityInput}
+                placeholder="Quantity"
+                value={newQuantity}
+                onChangeText={setNewQuantity}
+                keyboardType="numeric"
+              />
+              
+              <TouchableOpacity 
+                style={styles.addSizeButton}
+                onPress={handleAddSize}
+              >
+                <Text style={styles.addSizeButtonText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {sizeError ? (
+              <Text style={styles.errorText}>{sizeError}</Text>
+            ) : null}
+
+            <View style={styles.sizesGrid}>
+              {formData.sizes?.map((sizeData) => (
+                <View key={sizeData.size} style={styles.sizeItem}>
+                  <Text style={styles.sizeLabel}>Size: {sizeData.size}</Text>
+                  <Text style={styles.quantityLabel}>Qty: {sizeData.quantity}</Text>
+                  <TouchableOpacity
+                    style={styles.removeSizeButton}
+                    onPress={() => handleRemoveSize(sizeData.size as string)}
+                  >
+                    <Text style={styles.removeSizeButtonText}>Remove</Text>
+                  </TouchableOpacity>
                 </View>
               ))}
             </View>
@@ -431,31 +546,71 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 10,
   },
+  sizeInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    gap: 8,
+  },
+  sizePicker: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  quantityInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 10,
+    marginRight: 8,
+  },
+  addSizeButton: {
+    backgroundColor: '#4CAF50',
+    padding: 10,
+    borderRadius: 8,
+    minWidth: 100,
+  },
+  addSizeButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  errorText: {
+    color: '#f44336',
+    marginBottom: 10,
+  },
   sizesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    justifyContent: 'space-between',
   },
   sizeItem: {
-    width: '30%',
     backgroundColor: '#f5f5f5',
     padding: 10,
     borderRadius: 8,
-    marginBottom: 10,
+    width: '48%',
   },
   sizeLabel: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 5,
-    textAlign: 'center',
   },
-  quantityInput: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
+  quantityLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  removeSizeButton: {
+    backgroundColor: '#f44336',
+    padding: 6,
     borderRadius: 4,
-    padding: 8,
+    marginTop: 8,
+  },
+  removeSizeButtonText: {
+    color: '#fff',
     textAlign: 'center',
+    fontSize: 12,
   },
 });

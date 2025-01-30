@@ -30,17 +30,29 @@ export const getProduct = (slug: string) => {
         .from('product')
         .select(`
           *,
-          product_size (*)
+          product_size:product_size(
+            id,
+            quantity,
+            size_id,
+            sizes:sizes(
+              id,
+              value
+            )
+          )
         `)
         .eq('slug', slug)
         .single();
 
       if (error) throw error;
-      
-      // Transform the data to match our Product type
+
+      // Transform the data to include size value from the joined sizes table
       return {
         ...data,
-        sizes: data.product_size // Map the product_size to sizes
+        sizes: data.product_size.map((ps: any) => ({
+          ...ps,
+          size: ps.sizes.value, // Add the size value from the joined sizes table
+          size_id: ps.size_id
+        }))
       };
     },
   });
@@ -104,7 +116,7 @@ export const createOrder = () => {
   return useMutation({
     async mutationFn({ totalPrice, items }: { 
       totalPrice: number, 
-      items: Array<{id: number, quantity: number, size: SizeType}> 
+      items: Array<{id: number, quantity: number, size: string, size_id: number}> 
     }) {
       if (!auth?.user?.id) {
         throw new Error('Please log in to create an order');
@@ -140,7 +152,8 @@ export const createOrder = () => {
               order: orderData.id,
               product: item.id,
               quantity: item.quantity,
-              size: item.size
+              size: item.size,
+              size_id: item.size_id
             }))
           );
 
@@ -155,7 +168,7 @@ export const createOrder = () => {
             {
               p_product_id: item.id,
               p_quantity: item.quantity,
-              p_size: item.size
+              p_size_id: item.size_id
             }
           );
 

@@ -1,39 +1,39 @@
--- Create an enum for sizes
-CREATE TYPE size_type AS ENUM ('S', 'M', 'L', 'XL', '2XL', '3XL');
+-- Remove the size_type enum since we'll use custom sizes
+DROP TYPE IF EXISTS size_type;
 
--- Create product_size table
+-- Modify product_size table to use varchar for size
 CREATE TABLE product_size (
   id SERIAL PRIMARY KEY,
   product_id INTEGER REFERENCES product(id) ON DELETE CASCADE,
-  size size_type NOT NULL,
+  size_id INTEGER REFERENCES sizes(id) ON DELETE RESTRICT,
   quantity INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-  UNIQUE(product_id, size)
+  UNIQUE(product_id, size_id)
 );
 
--- Modify product table (remove maxQuantity as it will be managed per size)
-ALTER TABLE product DROP COLUMN maxQuantity;
+
 
 CREATE OR REPLACE FUNCTION decrement_size_quantity(
   p_product_id INT,
-  p_size size_type,
+  p_size_id INT,
   p_quantity INT
 ) RETURNS void AS $$
 BEGIN
-  -- Add locking to prevent concurrent updates
   PERFORM pg_advisory_xact_lock(p_product_id);
   
   UPDATE product_size
   SET quantity = quantity - p_quantity
   WHERE product_id = p_product_id 
-    AND size = p_size
+    AND size_id = p_size_id
     AND quantity >= p_quantity;
     
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Insufficient quantity available for product % size %', p_product_id, p_size;
+    RAISE EXCEPTION 'Insufficient quantity available for product % size %', p_product_id, p_size_id;
   END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+
 
 -- Add size column to order_item table if it doesn't exist
 DO $$ 
@@ -44,8 +44,53 @@ BEGIN
         WHERE table_name = 'order_item' 
         AND column_name = 'size'
     ) THEN
-        ALTER TABLE order_item ADD COLUMN size size_type NOT NULL DEFAULT 'M';
+        ALTER TABLE order_item ADD COLUMN size VARCHAR(20) NOT NULL DEFAULT 'M';
         -- We set a default value temporarily to handle existing records
         -- After migration is complete, you can remove the DEFAULT if desired
     END IF;
-END $$; 
+END $$;
+
+-- Create sizes table
+CREATE TABLE sizes (
+  id SERIAL PRIMARY KEY,
+  value VARCHAR(20) NOT NULL UNIQUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Update product_size table structure
+ALTER TABLE product_size 
+DROP COLUMN size,
+ADD COLUMN size_id INTEGER REFERENCES sizes(id) ON DELETE RESTRICT;
+
+-- Add size_id column to order_item table
+ALTER TABLE order_item 
+ADD COLUMN size_id INTEGER REFERENCES sizes(id);
+
+-- Update database types for order_item table
+ALTER TABLE order_item
+ALTER COLUMN size TYPE VARCHAR(20),
+ADD COLUMN size_id INTEGER REFERENCES sizes(id);
+
+-- First drop existing foreign key constraints
+ALTER TABLE order_item 
+DROP CONSTRAINT IF EXISTS order_item_size_id_fkey;
+
+ALTER TABLE product_size 
+DROP CONSTRAINT IF EXISTS product_size_size_id_fkey;
+
+-- Then add them back with proper ON DELETE rules
+ALTER TABLE order_item 
+ADD CONSTRAINT order_item_size_id_fkey 
+FOREIGN KEY (size_id) 
+REFERENCES sizes(id) 
+ON DELETE SET NULL;  -- When size is deleted, set size_id to NULL in order_item
+
+ALTER TABLE product_size 
+ADD CONSTRAINT product_size_size_id_fkey 
+FOREIGN KEY (size_id) 
+REFERENCES sizes(id) 
+ON DELETE CASCADE;  -- When size is deleted, also delete related product_size entries
+
+-- Make size_id nullable in order_item since we're using ON DELETE SET NULL
+ALTER TABLE order_item 
+ALTER COLUMN size_id DROP NOT NULL; 

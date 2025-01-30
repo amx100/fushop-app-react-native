@@ -6,7 +6,7 @@ import { CategoryModal } from '../components/admin/CategoryModal';
 import { useAuth } from '../providers/auth-provider';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Product, ProductFormData, Order, OrderStatus, Category, CategoryFormData } from '../types';
+import { Product, ProductFormData, Order, OrderStatus, Category, CategoryFormData, ProductSize, SizeType } from '../types';
 import { useAdminProducts } from '../hooks/useAdminProducts';
 import { useAdminOrders } from '../hooks/useAdminOrders';
 import { useAdminCategories } from '../hooks/useAdminCategories';
@@ -19,6 +19,7 @@ import * as FileSystem from 'expo-file-system';
 import { CategoryList } from '../components/admin/CategoryList';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
+import SizeManagement from './admin/sizes';
 
 const initialFormData: ProductFormData = {
   title: '',
@@ -39,7 +40,7 @@ const initialCategoryFormData: CategoryFormData = {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'categories'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'categories' | 'sizes'>('products');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -190,7 +191,7 @@ export default function AdminDashboard() {
       price: product.price,
       heroImage: product.heroImage,
       category: product.category,
-      sizes: product.sizes,
+      sizes: product.sizes as (ProductSize[] & { size: SizeType; quantity: number; }[]),
     });
     setPreviewImage(product.heroImage);
     setIsModalVisible(true);
@@ -227,64 +228,55 @@ export default function AdminDashboard() {
       </View>
 
       <View style={styles.tabContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tab, activeTab === 'products' && styles.activeTab]}
           onPress={() => setActiveTab('products')}
         >
-          <Ionicons 
-            name="cube" 
-            size={20} 
-            color={activeTab === 'products' ? '#fff' : '#666'} 
-          />
           <Text style={[styles.tabText, activeTab === 'products' && styles.activeTabText]}>
             Products
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
           onPress={() => setActiveTab('orders')}
         >
-          <Ionicons 
-            name="cart" 
-            size={20} 
-            color={activeTab === 'orders' ? '#fff' : '#666'} 
-          />
           <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
             Orders
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.tab, activeTab === 'categories' && styles.activeTab]}
           onPress={() => setActiveTab('categories')}
         >
-          <Ionicons 
-            name="folder" 
-            size={20} 
-            color={activeTab === 'categories' ? '#fff' : '#666'} 
-          />
           <Text style={[styles.tabText, activeTab === 'categories' && styles.activeTabText]}>
             Categories
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'sizes' && styles.activeTab]}
+          onPress={() => setActiveTab('sizes')}
+        >
+          <Text style={[styles.tabText, activeTab === 'sizes' && styles.activeTabText]}>
+            Sizes
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {activeTab === 'products' ? (
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#666" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={`Search ${activeTab}...`}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
+      {activeTab === 'products' && (
         <>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#666" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search products..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#666"
-            />
-            {searchQuery !== '' && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color="#666" />
-              </TouchableOpacity>
-            )}
-          </View>
           <ProductList
             products={filteredProducts || []}
             isLoading={productsLoading}
@@ -296,13 +288,17 @@ export default function AdminDashboard() {
             }}
           />
         </>
-      ) : activeTab === 'orders' ? (
+      )}
+
+      {activeTab === 'orders' && (
         <OrderList
           orders={orders || []}
           isLoading={ordersLoading}
           onUpdateStatus={(orderId: number, status: OrderStatus) => updateOrderStatus(orderId, status)}
         />
-      ) : (
+      )}
+
+      {activeTab === 'categories' && (
         <View style={styles.categoryContainer}>
           <TouchableOpacity 
             style={styles.createButton}
@@ -328,6 +324,10 @@ export default function AdminDashboard() {
             onDelete={(id) => handleDeleteCategory(id)}
           />
         </View>
+      )}
+
+      {activeTab === 'sizes' && (
+        <SizeManagement />
       )}
 
       <ProductModal
@@ -399,28 +399,35 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 4,
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
-    padding: 15,
+    paddingVertical: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
-    marginHorizontal: 5,
-    borderRadius: 8,
-    gap: 8,
+    borderRadius: 6,
   },
   activeTab: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   tabText: {
-    fontSize: 14,
     color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
   },
   activeTabText: {
-    color: '#fff',
+    color: '#000',
     fontWeight: 'bold',
   },
   signOutButton: {

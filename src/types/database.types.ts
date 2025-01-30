@@ -81,7 +81,8 @@ export type Database = {
           order: number
           product: number
           quantity: number
-          size: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
+          size: string
+          size_id: number
         }
         Insert: {
           created_at?: string
@@ -89,7 +90,8 @@ export type Database = {
           order: number
           product: number
           quantity: number
-          size: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
+          size: string
+          size_id: number
         }
         Update: {
           created_at?: string
@@ -97,7 +99,8 @@ export type Database = {
           order?: number
           product?: number
           quantity?: number
-          size?: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
+          size?: string
+          size_id?: number
         }
         Relationships: [
           {
@@ -114,6 +117,13 @@ export type Database = {
             referencedRelation: "product"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "order_item_size_id_fkey"
+            columns: ["size_id"]
+            isOneToOne: false
+            referencedRelation: "sizes"
+            referencedColumns: ["id"]
+          }
         ]
       }
       product: {
@@ -159,32 +169,39 @@ export type Database = {
       }
       product_size: {
         Row: {
-          id: number
-          product_id: number
-          size: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
-          quantity: number
-          created_at: string
-        }
+          id: number;
+          product_id: number;
+          size_id: number;
+          quantity: number;
+          created_at: string;
+        };
         Insert: {
-          id?: number
-          product_id: number
-          size: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
-          quantity: number
-          created_at?: string
-        }
+          id?: number;
+          product_id: number;
+          size_id: number;
+          quantity: number;
+          created_at?: string;
+        };
         Update: {
-          id?: number
-          product_id?: number
-          size?: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
-          quantity?: number
-          created_at?: string
-        }
+          id?: number;
+          product_id?: number;
+          size_id?: number;
+          quantity?: number;
+          created_at?: string;
+        };
         Relationships: [
           {
             foreignKeyName: "product_size_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_size_size_id_fkey"
+            columns: ["size_id"]
+            isOneToOne: false
+            referencedRelation: "sizes"
             referencedColumns: ["id"]
           }
         ]
@@ -227,6 +244,23 @@ export type Database = {
           },
         ]
       }
+      sizes: {
+        Row: {
+          id: number;
+          value: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          value: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          value?: string;
+          created_at?: string;
+        };
+      }
     }
     Views: {
       [_ in never]: never
@@ -235,7 +269,7 @@ export type Database = {
       decrement_size_quantity: {
         Args: {
           p_product_id: number
-          p_size: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
+          p_size_id: number
           p_quantity: number
         }
         Returns: undefined

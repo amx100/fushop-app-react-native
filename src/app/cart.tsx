@@ -39,14 +39,14 @@ const CartItemComponent = ({
         <Text style={styles.itemSize}>Size: {item.size}</Text>
         <View style={styles.quantityContainer}>
           <TouchableOpacity
-            onPress={() => onDecrement(item.id, item.size)}
+            onPress={() => onDecrement(item.id, item.size as SizeType)}
             style={styles.quantityButton}
           >
             <Text style={styles.quantityButtonText}>-</Text>
           </TouchableOpacity>
           <Text style={styles.itemQuantity}>{item.quantity}</Text>
           <TouchableOpacity
-            onPress={() => onIncrement(item.id, item.size)}
+            onPress={() => onIncrement(item.id, item.size as SizeType)}
             style={styles.quantityButton}
           >
             <Text style={styles.quantityButtonText}>+</Text>
@@ -55,7 +55,7 @@ const CartItemComponent = ({
       </View>
 
       <TouchableOpacity
-        onPress={() => onRemove(item.id, item.size)}
+        onPress={() => onRemove(item.id, item.size as SizeType)}
         style={styles.removeButton}
       >
         <Text style={styles.removeButtonText}>Remove</Text>
@@ -115,7 +115,8 @@ export default function Cart() {
         items: items.map(item => ({
           id: Number(item.id),
           quantity: item.quantity,
-          size: item.size
+          size: item.size,
+          size_id: item.size_id
         }))
       });
 
