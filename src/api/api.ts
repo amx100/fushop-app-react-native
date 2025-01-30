@@ -176,9 +176,10 @@ export const createOrderItem = () => {
       await Promise.all(
         Object.entries(productQuantities).map(
           async ([productId, totalQuantity]) =>
-            supabase.rpc('decrement_product_quantity', {
-              product_id: Number(productId),
-              quantity: totalQuantity,
+            supabase.rpc('decrement_size_quantity', {
+              p_product_id: Number(productId),
+              p_quantity: totalQuantity,
+              p_size: "M" // Note: This is a temporary fix - we need size information passed in
             })
         )
       );
