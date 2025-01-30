@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { Product, ProductFormData } from '../types';
+import { Product, ProductFormData, SizeType } from '../types';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { randomUUID } from 'expo-crypto';
@@ -15,13 +15,28 @@ export function useAdminProducts() {
   const { data: products, isLoading } = useQuery({
     queryKey: ['admin-products'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: productsData, error: productsError } = await supabase
         .from('product')
-        .select('*')
+        .select(`
+          *,
+          product_size:product_size(
+            id,
+            quantity,
+            size_id,
+            sizes:sizes(value)
+          )
+        `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data as Product[];
+      if (productsError) throw productsError;
+
+      return productsData.map(product => ({
+        ...product,
+        sizes: product.product_size.map((ps: any) => ({
+          ...ps,
+          size: ps.sizes.value
+        }))
+      }));
     },
   });
 
@@ -86,12 +101,34 @@ export function useAdminProducts() {
 
   const handleCreateProduct = async (formData: ProductFormData) => {
     try {
-      const productData = {
-        ...formData,
-        imagesUrl: [] // Add required imagesUrl field
-      };
-      const { error } = await supabase.from('product').insert(productData);
-      if (error) throw error;
+      const { data: productData, error: productError } = await supabase
+        .from('product')
+        .insert({
+          title: formData.title,
+          slug: formData.slug,
+          price: formData.price,
+          heroImage: formData.heroImage,
+          category: formData.category,
+          imagesUrl: formData.imagesUrl || []
+        })
+        .select()
+        .single();
+
+      if (productError) throw productError;
+
+      if (formData.sizes && formData.sizes.length > 0) {
+        const sizesData = formData.sizes.map(size => ({
+          product_id: productData.id,
+          size_id: size.size_id,
+          quantity: size.quantity
+        }));
+
+        const { error: sizesError } = await supabase
+          .from('product_size')
+          .insert(sizesData);
+
+        if (sizesError) throw sizesError;
+      }
 
       await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       Toast.show('Product created successfully', { type: 'success' });
@@ -104,12 +141,38 @@ export function useAdminProducts() {
 
   const handleUpdateProduct = async (id: number, formData: ProductFormData) => {
     try {
-      const { error } = await supabase
+      const { error: productError } = await supabase
         .from('product')
-        .update(formData)
+        .update({
+          title: formData.title,
+          slug: formData.slug,
+          price: formData.price,
+          heroImage: formData.heroImage,
+          category: formData.category,
+          imagesUrl: formData.imagesUrl || []
+        })
         .eq('id', id);
 
-      if (error) throw error;
+      if (productError) throw productError;
+
+      if (formData.sizes) {
+        await supabase
+          .from('product_size')
+          .delete()
+          .eq('product_id', id);
+
+        const sizesData = formData.sizes.map(size => ({
+          product_id: id,
+          size_id: size.size_id,
+          quantity: size.quantity
+        }));
+
+        const { error: sizesError } = await supabase
+          .from('product_size')
+          .insert(sizesData);
+
+        if (sizesError) throw sizesError;
+      }
 
       await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       Toast.show('Product updated successfully', { type: 'success' });
@@ -134,6 +197,22 @@ export function useAdminProducts() {
     }
   };
 
+  const decrementSizeQuantity = async (productId: number, size: SizeType, quantity: number) => {
+    try {
+      const { error } = await supabase.rpc('decrement_size_quantity', {
+        p_product_id: productId,
+        p_size: size,
+        p_quantity: quantity
+      });
+
+      if (error) throw error;
+      
+      await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+    } catch (error) {
+      throw new Error('Error updating product quantity: ' + (error as Error).message);
+    }
+  };
+
   return {
     products,
     isLoading,
@@ -142,5 +221,6 @@ export function useAdminProducts() {
     handleDeleteProduct,
     pickImage,
     tempImageUrl,
+    decrementSizeQuantity,
   };
 } 

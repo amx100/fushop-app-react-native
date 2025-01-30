@@ -7,57 +7,46 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
+  StatusBar,
 } from 'react-native';
 import { useCartStore } from '../store/cart-store';
-import { StatusBar } from 'expo-status-bar';
 import { createOrder, createOrderItem } from '../api/api';
 import { useAuth } from '../providers/auth-provider';
-// Removing the problematic import since AuthContext module is not found
-// import { useAuth } from '../contexts/AuthContext';
-
-type CartItemType = {
-  id: number;
-  title: string;
-  heroImage: string;
-  price: number;
-  quantity: number;
-  maxQuantity: number;
-};
+import { CartItem, SizeType } from '../types';
 
 type CartItemProps = {
-  item: CartItemType;
-  onRemove: (id: number) => void;
-  onIncrement: (id: number) => void;
-  onDecrement: (id: number) => void;
+  item: CartItem;
+  onRemove: (id: number | string, size: SizeType) => void;
+  onIncrement: (id: number | string, size: SizeType) => void;
+  onDecrement: (id: number | string, size: SizeType) => void;
+
 };
 
-const CartItem = ({
+const CartItemComponent = ({
   item,
   onDecrement,
   onIncrement,
   onRemove,
 }: CartItemProps) => {
-  if (!item?.id) return null; // Add null check for item
+  if (!item?.id) return null;
 
   return (
     <View style={styles.cartItem}>
-      <Image 
-        source={{ uri: item.heroImage }} 
-        style={styles.itemImage}
-      />
+      <Image source={{ uri: item.heroImage }} style={styles.itemImage} />
       <View style={styles.itemDetails}>
         <Text style={styles.itemTitle}>{item.title}</Text>
         <Text style={styles.itemPrice}>${(item.price || 0).toFixed(2)}</Text>
+        <Text style={styles.itemSize}>Size: {item.size}</Text>
         <View style={styles.quantityContainer}>
           <TouchableOpacity
-            onPress={() => onDecrement(item.id)}
+            onPress={() => onDecrement(item.id, item.size as SizeType)}
             style={styles.quantityButton}
           >
             <Text style={styles.quantityButtonText}>-</Text>
           </TouchableOpacity>
           <Text style={styles.itemQuantity}>{item.quantity}</Text>
           <TouchableOpacity
-            onPress={() => onIncrement(item.id)}
+            onPress={() => onIncrement(item.id, item.size as SizeType)}
             style={styles.quantityButton}
           >
             <Text style={styles.quantityButtonText}>+</Text>
@@ -66,7 +55,7 @@ const CartItem = ({
       </View>
 
       <TouchableOpacity
-        onPress={() => onRemove(item.id)}
+        onPress={() => onRemove(item.id, item.size as SizeType)}
         style={styles.removeButton}
       >
         <Text style={styles.removeButtonText}>Remove</Text>
@@ -77,7 +66,7 @@ const CartItem = ({
 
 export default function Cart() {
   const {
-    items = [],
+    items,
     removeItem,
     incrementItem,
     decrementItem,
@@ -92,7 +81,7 @@ export default function Cart() {
   if (mounting) {
     return (
       <View style={styles.container}>
-        <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
+        <StatusBar barStyle={Platform.OS === 'ios' ? 'light-content' : 'dark-content'} />
         <View style={styles.emptyStateContainer}>
           <Text style={styles.emptyCartText}>Loading...</Text>
         </View>
@@ -103,47 +92,37 @@ export default function Cart() {
   if (!session || !user?.id) {
     return (
       <View style={styles.container}>
-        <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
+        <StatusBar barStyle={Platform.OS === 'ios' ? 'light-content' : 'dark-content'} />
         <View style={styles.emptyStateContainer}>
           <Text style={styles.emptyCartText}>Please log in to view your cart</Text>
         </View>
-      </View>
-    );
-  }
 
-  if (!Array.isArray(items)) {
-    return (
-      <View style={styles.container}>
-        <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
-        <View style={styles.emptyStateContainer}>
-          <Text style={styles.emptyCartText}>Loading cart...</Text>
-        </View>
       </View>
     );
   }
 
   const handleCheckout = async () => {
-    if (items.length === 0) {
+    if (!items || items.length === 0) {
       Alert.alert('Error', 'Your cart is empty');
       return;
     }
 
     try {
+      const totalPrice = parseFloat(getTotalPrice());
+      
       const orderData = await createSupabaseOrder({ 
-        totalPrice: parseFloat(getTotalPrice()) 
+        totalPrice,
+        items: items.map(item => ({
+          id: Number(item.id),
+          quantity: item.quantity,
+          size: item.size,
+          size_id: item.size_id
+        }))
       });
 
       if (!orderData?.id) {
         throw new Error('Failed to create order: No order ID returned');
       }
-
-      await createSupabaseOrderItem(
-        items.map(item => ({
-          orderId: orderData.id,
-          productId: item.id,
-          quantity: item.quantity,
-        }))
-      );
 
       Alert.alert(
         'Success',
@@ -168,13 +147,14 @@ export default function Cart() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
+      <StatusBar barStyle={Platform.OS === 'ios' ? 'light-content' : 'dark-content'} />
+
 
       <FlatList
         data={items}
-        keyExtractor={item => item?.id?.toString() || Math.random().toString()}
+        keyExtractor={item => `${item.id}-${item.size}`}
         renderItem={({ item }) => (
-          <CartItem
+          <CartItemComponent
             item={item}
             onRemove={removeItem}
             onIncrement={incrementItem}
@@ -306,5 +286,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  itemSize: {
+    fontSize: 14,
+    color: '#666',
   },
 });

@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
 } from 'react-native';
 import { useToast } from 'react-native-toast-notifications';
 import { useState } from 'react';
@@ -13,6 +14,7 @@ import { useState } from 'react';
 import { useCartStore } from '../../store/cart-store';
 import { getProduct } from '../../api/api';
 import { ActivityIndicator } from 'react-native';
+import { Product, ProductSize, SizeType } from '../../types';
 
 const ProductDetails = () => {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -25,7 +27,7 @@ const ProductDetails = () => {
   const cartItem = items.find(item => item.id === product?.id);
 
   const initialQuantity = cartItem ? cartItem.quantity : 0;
-
+  const [selectedSize, setSelectedSize] = useState<SizeType | ''>('');
   const [quantity, setQuantity] = useState(initialQuantity);
 
   if (isLoading) {
@@ -45,13 +47,41 @@ const ProductDetails = () => {
       </View>
     );
   }
+  const getMaxQuantityForSize = (size: string) => {
+    const typedProduct = product as Product;
+    const sizeData = typedProduct.sizes?.find(s => s.size === size);
+    return sizeData?.quantity || 0;
+  };
 
-  const increaseQuantity = () => {
-    if (quantity < product.maxQuantity) {
-      setQuantity(prev => prev + 1);
-      incrementItem(product.id);
-    } else {
-      toast.show('Cannot add more than maximum quantity', {
+  const handleIncreaseQuantity = () => {
+    if (!selectedSize) {
+      toast.show('Please select a size first', {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+
+    const maxQuantity = getMaxQuantityForSize(selectedSize);
+    if (quantity >= maxQuantity) {
+      toast.show(`Only ${maxQuantity} items available in size ${selectedSize}`, {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+
+    setQuantity(prev => prev + 1);
+  };
+
+  const decreaseQuantity = () => {
+    if (quantity > 0 && selectedSize) {
+      setQuantity(prev => prev - 1);
+      decrementItem(product.id, selectedSize);
+    } else if (!selectedSize) {
+      toast.show('Please select a size first', {
         type: 'warning',
         placement: 'top',
         duration: 1500,
@@ -59,22 +89,48 @@ const ProductDetails = () => {
     }
   };
 
-  const decreaseQuantity = () => {
-    if (quantity > 0) {
-      setQuantity(prev => prev - 1);
-      decrementItem(product.id);
-    }
-  };
-
   const addToCart = () => {
+    if (!selectedSize) {
+      toast.show('Please select a size', {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+
+    const sizeData = product.sizes?.find((s: { size: string }) => s.size === selectedSize);
+    if (!sizeData) {
+      toast.show('Selected size not found', {
+        type: 'error',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+
+    const maxQuantity = getMaxQuantityForSize(selectedSize);
+    if (quantity > maxQuantity) {
+      toast.show(`Cannot add ${quantity} items. Only ${maxQuantity} available in size ${selectedSize}`, {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+
     addItem({
       id: product.id,
       title: product.title,
       heroImage: product.heroImage,
+      name: product.title,
       price: product.price,
       quantity,
-      maxQuantity: product.maxQuantity,
+      size: selectedSize,
+      size_id: sizeData.size_id,
+      maxQuantity: maxQuantity
     });
+    
     toast.show('Added to cart', {
       type: 'success',
       placement: 'top',
@@ -85,7 +141,7 @@ const ProductDetails = () => {
   const totalPrice = (product.price * quantity).toFixed(2);
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <Stack.Screen options={{ title: product.title }} />
 
       <Image source={{ uri: product.heroImage }} style={styles.heroImage} />
@@ -100,9 +156,43 @@ const ProductDetails = () => {
           <Text style={styles.price}>Total Price: ${totalPrice}</Text>
         </View>
 
+        <View style={styles.sizesContainer}>
+          <Text style={styles.sizeTitle}>Select Size:</Text>
+          <View style={styles.sizeButtons}>
+            {product.sizes?.map((sizeData: ProductSize) => (
+              <TouchableOpacity
+                key={`${product.id}-${sizeData.size_id}`}
+                style={[
+                  styles.sizeButton,
+                  selectedSize === sizeData.size && styles.selectedSizeButton,
+                  sizeData.quantity === 0 && styles.disabledSizeButton,
+                ]}
+                onPress={() => {
+                  if (sizeData.quantity > 0) {
+                    setSelectedSize(sizeData.size as SizeType);
+                    setQuantity(0);
+                  }
+                }}
+                disabled={sizeData.quantity === 0}
+              >
+                <Text style={[
+                  styles.sizeButtonText,
+                  selectedSize === sizeData.size && styles.selectedSizeText,
+                  sizeData.quantity === 0 && styles.disabledSizeText,
+                ]}>
+                  {sizeData.size}
+                </Text>
+                <Text style={styles.stockText}>
+                  ({sizeData.quantity} left)
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
         <FlatList
           data={product.imagesUrl}
-          keyExtractor={(item, index) => index.toString()}
+          keyExtractor={(item, index) => `${product.id}-image-${index}`}
           renderItem={({ item }) => (
             <Image source={{ uri: item }} style={styles.image} />
           )}
@@ -113,18 +203,18 @@ const ProductDetails = () => {
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={styles.quantityButton}
+            style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
             onPress={decreaseQuantity}
-            disabled={quantity <= 0} // Onemogućiti dugme kad je količina 0
+            disabled={quantity <= 0 || !selectedSize}
           >
             <Text style={styles.quantityButtonText}>-</Text>
           </TouchableOpacity>
           <Text style={styles.quantity}>{quantity}</Text>
 
           <TouchableOpacity
-            style={styles.quantityButton}
-            onPress={increaseQuantity}
-            disabled={quantity >= product.maxQuantity}
+            style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
+            onPress={handleIncreaseQuantity}
+            disabled={!selectedSize || quantity >= getMaxQuantityForSize(selectedSize)}
           >
             <Text style={styles.quantityButtonText}>+</Text>
           </TouchableOpacity>
@@ -132,16 +222,16 @@ const ProductDetails = () => {
           <TouchableOpacity
             style={[
               styles.addToCartButton,
-              { opacity: quantity === 0 ? 0.5 : 1 },
+              { opacity: (quantity === 0 || !selectedSize) ? 0.5 : 1 },
             ]}
             onPress={addToCart}
-            disabled={quantity === 0}
+            disabled={quantity === 0 || !selectedSize}
           >
             <Text style={styles.addToCartText}>Add to Cart</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -177,7 +267,49 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000',
   },
-
+  sizesContainer: {
+    marginBottom: 20,
+  },
+  sizeTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  sizeButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  sizeButton: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#007bff',
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  selectedSizeButton: {
+    backgroundColor: '#007bff',
+  },
+  disabledSizeButton: {
+    borderColor: '#ccc',
+    backgroundColor: '#f5f5f5',
+  },
+  sizeButtonText: {
+    color: '#007bff',
+    fontWeight: 'bold',
+  },
+  selectedSizeText: {
+    color: '#fff',
+  },
+  disabledSizeText: {
+    color: '#999',
+  },
+  stockText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
   imagesContainer: {
     marginBottom: 16,
   },
@@ -201,6 +333,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 8,
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
   },
   quantityButtonText: {
     fontSize: 24,

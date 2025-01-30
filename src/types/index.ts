@@ -2,15 +2,15 @@ export type Product = {
   id: number;
   title: string;
   price: number;
-  maxQuantity: number;
   heroImage: string;
   category: number;
   slug: string;
-  imagesUrl: string[]; // Dodajem iz grane 'main'
+  imagesUrl: string[];
+  sizes?: ProductSize[];
 };
 
 export type ProductFormData = Omit<Product, 'id'> & {
-  imagesUrl?: string[];
+  sizes?: ProductSize[];
 };
 
 export type OrderStatus = 'Pending' | 'Completed' | 'Shipped' | 'InTransit';
@@ -35,11 +35,27 @@ export type Category = {
 
 export type CategoryFormData = Omit<Category, 'id' | 'products'>;
 
+export type SizeType = 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
+
+export type ProductSize = {
+  id: number;
+  product_id: number;
+  size_id: number;
+  size?: string; // For display purposes
+  quantity: number;
+  created_at: string;
+};
+
 export interface CartItem {
   id: string | number;
+  title: string;
+  heroImage: string;
   name: string;
   price: number;
   quantity: number;
+  size: string;
+  size_id: number;
+  maxQuantity: number;
 }
 
 export interface Cart {

@@ -138,7 +138,6 @@ const Orders = () => {
     };
   }, [session, fetchOrders]);
 
-
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'Orders' }} />
