@@ -20,6 +20,9 @@ CREATE OR REPLACE FUNCTION decrement_size_quantity(
   p_quantity INT
 ) RETURNS void AS $$
 BEGIN
+  -- Add locking to prevent concurrent updates
+  PERFORM pg_advisory_xact_lock(p_product_id);
+  
   UPDATE product_size
   SET quantity = quantity - p_quantity
   WHERE product_id = p_product_id 
@@ -27,7 +30,22 @@ BEGIN
     AND quantity >= p_quantity;
     
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Insufficient quantity available for size %', p_size;
+    RAISE EXCEPTION 'Insufficient quantity available for product % size %', p_product_id, p_size;
   END IF;
 END;
-$$ LANGUAGE plpgsql; 
+$$ LANGUAGE plpgsql;
+
+-- Add size column to order_item table if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_name = 'order_item' 
+        AND column_name = 'size'
+    ) THEN
+        ALTER TABLE order_item ADD COLUMN size size_type NOT NULL DEFAULT 'M';
+        -- We set a default value temporarily to handle existing records
+        -- After migration is complete, you can remove the DEFAULT if desired
+    END IF;
+END $$; 

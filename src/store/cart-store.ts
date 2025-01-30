@@ -1,96 +1,132 @@
 import { create } from 'zustand';
+import { CartItem, SizeType } from '../types';
+import { Toast } from 'react-native-toast-notifications';
 
-type CartItemType = {
-  id: number;
-  title: string;
-  heroImage: string;
-  price: number;
-  quantity: number;
-  maxQuantity: number;
-};
-
-type CartState = {
-  items: CartItemType[];
-  addItem: (item: CartItemType) => void;
-  removeItem: (id: number) => void;
-  incrementItem: (id: number) => void;
-  decrementItem: (id: number) => void;
+interface CartStore {
+  items: CartItem[];
+  addItem: (item: CartItem) => void;
+  removeItem: (id: number | string, size: SizeType) => void;
+  clearCart: () => void;
+  incrementItem: (id: number | string, size: SizeType) => void;
+  decrementItem: (id: number | string, size: SizeType) => void;
   getTotalPrice: () => string;
   getItemCount: () => number;
   resetCart: () => void;
-};
+}
 
-// Ensure initialCartItems is always an array
-const initialCartItems: CartItemType[] = [];
+export const useCartStore = create<CartStore>((set, get) => ({
+  items: [],
+  addItem: (item) =>
+    set((state) => {
+      const existingItemIndex = state.items.findIndex(
+        i => i.id === item.id && i.size === item.size
+      );
 
-export const useCartStore = create<CartState>((set, get) => ({
-  items: initialCartItems,
-  addItem: (item: CartItemType) => {
-    if (!item?.id) return; // Guard against invalid items
+      if (existingItemIndex !== -1) {
+        const existingItem = state.items[existingItemIndex];
+        const newQuantity = existingItem.quantity + item.quantity;
 
-    const existingItem = get().items?.find(i => i?.id === item.id);
-    if (existingItem) {
-      set(state => ({
-        items: state.items.map(i =>
-          i?.id === item.id
-            ? {
-                ...i,
-                quantity: Math.min(i.quantity + (item.quantity || 1), i.maxQuantity),
-              }
-            : i
-        ).filter(Boolean) as CartItemType[], // Filter out any null/undefined items
-      }));
-    } else {
-      set(state => ({ 
-        items: [...(state.items || []), { ...item, quantity: item.quantity || 1 }] 
-      }));
-    }
-  },
-  removeItem: (id: number) =>
-    set(state => ({ 
-      items: (state.items || []).filter(item => item?.id !== id) 
-    })),
-  incrementItem: (id: number) =>
-    set(state => {
-      if (!state.items) return { items: [] };
-      return {
-        items: state.items.map(item =>
-          item?.id === id && item.quantity < (item.maxQuantity || Infinity)
-            ? { ...item, quantity: (item.quantity || 0) + 1 }
-            : item
-        ).filter(Boolean) as CartItemType[],
-      };
+        if (newQuantity > existingItem.maxQuantity) {
+          Toast.show(
+            `Cannot add more items. Maximum available quantity is ${existingItem.maxQuantity}`, 
+            {
+              type: 'warning',
+              placement: 'top',
+              duration: 3000,
+            }
+          );
+          return state;
+        }
+
+        const updatedItems = [...state.items];
+        updatedItems[existingItemIndex] = {
+          ...existingItem,
+          quantity: newQuantity,
+        };
+        return { items: updatedItems };
+      }
+
+      if (item.quantity > item.maxQuantity) {
+        Toast.show(
+          `Cannot add ${item.quantity} items. Maximum available quantity is ${item.maxQuantity}`,
+          {
+            type: 'warning',
+            placement: 'top',
+            duration: 3000,
+          }
+        );
+        return state;
+      }
+
+      return { items: [...state.items, item] };
     }),
-  decrementItem: (id: number) =>
-    set(state => {
-      if (!state.items) return { items: [] };
-      return {
-        items: state.items.map(item =>
-          item?.id === id && (item.quantity || 0) > 1
-            ? { ...item, quantity: (item.quantity || 0) - 1 }
-            : item
-        ).filter(Boolean) as CartItemType[],
+  removeItem: (id, size) =>
+    set((state) => ({
+      items: state.items.filter(i => !(i.id === id && i.size === size)),
+    })),
+  clearCart: () => set({ items: [] }),
+  incrementItem: (id, size) =>
+    set((state) => {
+      const itemIndex = state.items.findIndex(
+        i => i.id === id && i.size === size
+      );
+      
+      if (itemIndex === -1) return state;
+
+      const item = state.items[itemIndex];
+      if (item.quantity >= item.maxQuantity) {
+        Toast.show(
+          `Maximum available quantity (${item.maxQuantity}) reached for this item`,
+          {
+            type: 'warning',
+            placement: 'top',
+            duration: 3000,
+          }
+        );
+        return state;
+      }
+
+      const updatedItems = [...state.items];
+      updatedItems[itemIndex] = {
+        ...item,
+        quantity: item.quantity + 1,
       };
+
+      return { items: updatedItems };
+    }),
+  decrementItem: (id, size) =>
+    set((state) => {
+      const itemIndex = state.items.findIndex(
+        i => i.id === id && i.size === size
+      );
+      
+      if (itemIndex === -1) return state;
+
+      const item = state.items[itemIndex];
+      if (item.quantity <= 1) {
+        // Remove item if quantity would go below 1
+        return {
+          items: state.items.filter((_, index) => index !== itemIndex),
+        };
+      }
+
+      const updatedItems = [...state.items];
+      updatedItems[itemIndex] = {
+        ...item,
+        quantity: item.quantity - 1,
+      };
+
+      return { items: updatedItems };
     }),
   getTotalPrice: () => {
     const { items } = get();
-    if (!items?.length) return '0.00';
-
     return items
-      .reduce((total, item) => 
-        total + (item?.price || 0) * (item?.quantity || 0), 
-        0
-      )
+      .reduce((total, item) => total + item.price * item.quantity, 0)
       .toFixed(2);
   },
   getItemCount: () => {
     const { items } = get();
-    if (!items?.length) return 0;
-
-    return items.reduce((count, item) => 
-      count + (item?.quantity || 0), 
-      0
-    );
+    return items.reduce((count, item) => count + item.quantity, 0);
   },
   resetCart: () => set({ items: [] }),
 }));

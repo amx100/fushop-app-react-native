@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/auth-provider';
 import { generateOrderSlug } from '../utils/utils';
+import { SizeType } from '../types';
 
 export const getProductsAndCategories = () => {
   return useQuery({
@@ -100,16 +101,18 @@ export const getMyOrders = () => {
 export const createOrder = () => {
   const auth = useAuth();
   const queryClient = useQueryClient();
-
   return useMutation({
-    async mutationFn({ totalPrice }: { totalPrice: number }) {
-      // Check if auth is initialized and user exists
+    async mutationFn({ totalPrice, items }: { 
+      totalPrice: number, 
+      items: Array<{id: number, quantity: number, size: SizeType}> 
+    }) {
       if (!auth?.user?.id) {
         throw new Error('Please log in to create an order');
       }
 
       const slug = generateOrderSlug();
       
+      // 1. First create the order
       const { data: orderData, error: orderError } = await supabase
         .from('order')
         .insert({
@@ -128,7 +131,49 @@ export const createOrder = () => {
         );
       }
 
-      return orderData;
+      try {
+        // 2. Create order items in a single transaction
+        const { error: itemsError } = await supabase
+          .from('order_item')
+          .insert(
+            items.map(item => ({
+              order: orderData.id,
+              product: item.id,
+              quantity: item.quantity,
+              size: item.size
+            }))
+          );
+
+        if (itemsError) {
+          throw new Error('Error creating order items: ' + itemsError.message);
+        }
+
+        // 3. Update product quantities one by one to ensure accuracy
+        for (const item of items) {
+          const { error: quantityError } = await supabase.rpc(
+            'decrement_size_quantity',
+            {
+              p_product_id: item.id,
+              p_quantity: item.quantity,
+              p_size: item.size
+            }
+          );
+
+          if (quantityError) {
+            throw new Error(`Error updating quantity for product ${item.id}: ${quantityError.message}`);
+          }
+        }
+
+        return orderData;
+      } catch (error) {
+        // If anything fails after order creation, we should delete the order
+        await supabase
+          .from('order')
+          .delete()
+          .eq('id', orderData.id);
+        
+        throw error;
+      }
     },
 
     onSuccess: async () => {
@@ -149,45 +194,47 @@ export const createOrderItem = () => {
         orderId: number;
         productId: number;
         quantity: number;
+        size: SizeType;
       }[]
     ) {
+      // First, create all order items
       const { data, error } = await supabase
         .from('order_item')
         .insert(
-          insertData.map(({ orderId, quantity, productId }) => ({
+          insertData.map(({ orderId, quantity, productId, size }) => ({
             order: orderId,
             product: productId,
             quantity,
+            size // Make sure size is included here
           }))
         )
         .select('*');
 
-      const productQuantities = insertData.reduce(
-        (acc, { productId, quantity }) => {
-          if (!acc[productId]) {
-            acc[productId] = 0;
-          }
-          acc[productId] += quantity;
-          return acc;
-        },
-        {} as Record<number, number>
-      );
-
-      await Promise.all(
-        Object.entries(productQuantities).map(
-          async ([productId, totalQuantity]) =>
-            supabase.rpc('decrement_size_quantity', {
-              p_product_id: Number(productId),
-              p_quantity: totalQuantity,
-              p_size: "M" // Note: This is a temporary fix - we need size information passed in
-            })
-        )
-      );
-
-      if (error)
+      if (error) {
+        console.error('Error creating order items:', error);
         throw new Error(
           'An error occurred while creating order item: ' + error.message
         );
+      }
+
+      // Then update the quantities for each product size
+      try {
+        await Promise.all(
+          insertData.map(({ productId, quantity, size }) =>
+            supabase.rpc('decrement_size_quantity', {
+              p_product_id: productId,
+              p_quantity: quantity,
+              p_size: size
+            })
+          )
+        );
+      } catch (error) {
+        console.error('Error updating product quantities:', error);
+        throw new Error(
+          'An error occurred while updating product quantities: ' + 
+          (error as Error).message
+        );
+      }
 
       return data;
     },

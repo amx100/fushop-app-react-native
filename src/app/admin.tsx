@@ -190,6 +190,7 @@ export default function AdminDashboard() {
       price: product.price,
       heroImage: product.heroImage,
       category: product.category,
+      sizes: product.sizes,
     });
     setPreviewImage(product.heroImage);
     setIsModalVisible(true);

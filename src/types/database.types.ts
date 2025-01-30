@@ -81,6 +81,7 @@ export type Database = {
           order: number
           product: number
           quantity: number
+          size: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
         }
         Insert: {
           created_at?: string
@@ -88,6 +89,7 @@ export type Database = {
           order: number
           product: number
           quantity: number
+          size: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
         }
         Update: {
           created_at?: string
@@ -95,6 +97,7 @@ export type Database = {
           order?: number
           product?: number
           quantity?: number
+          size?: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
         }
         Relationships: [
           {

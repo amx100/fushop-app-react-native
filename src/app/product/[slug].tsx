@@ -53,7 +53,7 @@ const ProductDetails = () => {
     return sizeData?.quantity || 0;
   };
 
-  const increaseQuantity = () => {
+  const handleIncreaseQuantity = () => {
     if (!selectedSize) {
       toast.show('Please select a size first', {
         type: 'warning',
@@ -64,22 +64,28 @@ const ProductDetails = () => {
     }
 
     const maxQuantity = getMaxQuantityForSize(selectedSize);
-    if (quantity < maxQuantity) {
-      setQuantity(prev => prev + 1);
-      incrementItem(product.id);
-    } else {
-      toast.show('Cannot add more than available quantity', {
+    if (quantity >= maxQuantity) {
+      toast.show(`Only ${maxQuantity} items available in size ${selectedSize}`, {
         type: 'warning',
         placement: 'top',
         duration: 1500,
       });
+      return;
     }
+
+    setQuantity(prev => prev + 1);
   };
 
   const decreaseQuantity = () => {
-    if (quantity > 0) {
+    if (quantity > 0 && selectedSize) {
       setQuantity(prev => prev - 1);
-      decrementItem(product.id);
+      decrementItem(product.id, selectedSize);
+    } else if (!selectedSize) {
+      toast.show('Please select a size first', {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
     }
   };
 
@@ -93,13 +99,25 @@ const ProductDetails = () => {
       return;
     }
 
+    const maxQuantity = getMaxQuantityForSize(selectedSize);
+    if (quantity > maxQuantity) {
+      toast.show(`Cannot add ${quantity} items. Only ${maxQuantity} available in size ${selectedSize}`, {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+
     addItem({
       id: product.id,
       title: product.title,
       heroImage: product.heroImage,
+      name: product.title,
       price: product.price,
       quantity,
-      maxQuantity: getMaxQuantityForSize(selectedSize),
+      size: selectedSize,
+      maxQuantity: getMaxQuantityForSize(selectedSize)
     });
     
     toast.show('Added to cart', {
@@ -184,7 +202,7 @@ const ProductDetails = () => {
 
           <TouchableOpacity
             style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
-            onPress={increaseQuantity}
+            onPress={handleIncreaseQuantity}
             disabled={!selectedSize || quantity >= getMaxQuantityForSize(selectedSize)}
           >
             <Text style={styles.quantityButtonText}>+</Text>
@@ -249,7 +267,7 @@ const styles = StyleSheet.create({
   sizeButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   sizeButton: {
     padding: 10,
