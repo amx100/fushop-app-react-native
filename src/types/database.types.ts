@@ -120,7 +120,6 @@ export type Database = {
           heroImage: string
           id: number
           imagesUrl: string[]
-          maxQuantity: number
           price: number
           slug: string
           title: string
@@ -131,7 +130,6 @@ export type Database = {
           heroImage: string
           id?: number
           imagesUrl: string[]
-          maxQuantity: number
           price: number
           slug: string
           title: string
@@ -142,7 +140,6 @@ export type Database = {
           heroImage?: string
           id?: number
           imagesUrl?: string[]
-          maxQuantity?: number
           price?: number
           slug?: string
           title?: string
@@ -154,7 +151,39 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "category"
             referencedColumns: ["id"]
-          },
+          }
+        ]
+      }
+      product_size: {
+        Row: {
+          id: number
+          product_id: number
+          size: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
+          quantity: number
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          product_id: number
+          size: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
+          quantity: number
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          product_id?: number
+          size?: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
+          quantity?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_size_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          }
         ]
       }
       users: {
@@ -200,10 +229,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      decrement_product_quantity: {
+      decrement_size_quantity: {
         Args: {
-          product_id: number
-          quantity: number
+          p_product_id: number
+          p_size: 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
+          p_quantity: number
         }
         Returns: undefined
       }

@@ -1,5 +1,5 @@
 import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
-import { ProductFormData, Category } from '../../types';
+import { ProductFormData, Category, SizeType } from '../../types';
 import RemoteImage from '../RemoteImage';
 import { Picker } from '@react-native-picker/picker';
 import { useQuery } from '@tanstack/react-query';
@@ -18,6 +18,8 @@ type ProductModalProps = {
   onPickImage: () => void;
   categories: Category[];
 };
+
+const SIZES: SizeType[] = ['S', 'M', 'L', 'XL', '2XL', '3XL'];
 
 // Add this function to fetch categories
 const useCategories = () => {
@@ -51,6 +53,31 @@ export function ProductModal({
     category.name.toLowerCase().includes(searchCategory.toLowerCase())
   );
 
+  const handleSizeQuantityChange = (size: SizeType, quantity: number) => {
+    const currentSizes = formData.sizes || [];
+    const sizeIndex = currentSizes.findIndex(s => s.size === size);
+    
+    if (sizeIndex >= 0) {
+      // Update existing size
+      const newSizes = [...currentSizes];
+      if (quantity <= 0) {
+        // Remove size if quantity is 0 or negative
+        newSizes.splice(sizeIndex, 1);
+      } else {
+        newSizes[sizeIndex] = { ...newSizes[sizeIndex], quantity };
+      }
+      onChange({ sizes: newSizes });
+    } else if (quantity > 0) {
+      // Add new size
+      onChange({ sizes: [...currentSizes, { size, quantity, id: 0, product_id: 0, created_at: '' }] });
+    }
+  };
+
+
+  const getSizeQuantity = (size: SizeType): number => {
+    return formData.sizes?.find(s => s.size === size)?.quantity || 0;
+  };
+
   const handleSubmit = async () => {
     console.log('Starting submit with formData:', formData);
 
@@ -65,11 +92,7 @@ export function ProductModal({
       alert('Please enter a valid price');
       return;
     }
-    if (!formData.maxQuantity || formData.maxQuantity <= 0) {
-      console.log('Validation failed: Invalid quantity', formData.maxQuantity);
-      alert('Please enter a valid quantity');
-      return;
-    }
+
     if (!formData.category || formData.category === 0) {
       console.log('Validation failed: Missing category', formData.category);
       alert('Please select a category');
@@ -78,6 +101,11 @@ export function ProductModal({
     if (!formData.heroImage) {
       console.log('Validation failed: Missing hero image');
       alert('Please upload an image');
+      return;
+    }
+    if (!formData.sizes || formData.sizes.length === 0) {
+      console.log('Validation failed: Missing sizes');
+      alert('Please add at least one size with quantity');
       return;
     }
 
@@ -132,14 +160,26 @@ export function ProductModal({
             onChangeText={(text) => onChange({ price: Number(text) || 0 })}
             keyboardType="numeric"
           />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Quantity"
-            value={formData.maxQuantity ? formData.maxQuantity.toString() : ''}
-            onChangeText={(text) => onChange({ maxQuantity: Number(text) || 0 })}
-            keyboardType="numeric"
-          />
+          {/* Size Management Section */}
+          <View style={styles.sizesContainer}>
+            <Text style={styles.sectionTitle}>Sizes and Quantities</Text>
+            <View style={styles.sizesGrid}>
+              {SIZES.map((size) => (
+                <View key={size} style={styles.sizeItem}>
+                  <Text style={styles.sizeLabel}>{size}</Text>
+                  <TextInput
+                    style={styles.quantityInput}
+                    value={getSizeQuantity(size).toString()}
+                    onChangeText={(text) => 
+                      handleSizeQuantityChange(size, parseInt(text) || 0)
+                    }
+                    keyboardType="numeric"
+                    placeholder="0"
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
 
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color="#666" />
@@ -381,5 +421,41 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#4CAF50',
+  },
+  sizesContainer: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  sizesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  sizeItem: {
+    width: '30%',
+    backgroundColor: '#f5f5f5',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  sizeLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    textAlign: 'center',
+  },
+  quantityInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    padding: 8,
+    textAlign: 'center',
   },
 });

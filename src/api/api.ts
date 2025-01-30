@@ -27,17 +27,20 @@ export const getProduct = (slug: string) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('product')
-        .select('*')
+        .select(`
+          *,
+          product_size (*)
+        `)
         .eq('slug', slug)
         .single();
 
-      if (error || !data) {
-        throw new Error(
-          'An error occurred while fetching data: ' + error?.message
-        );
-      }
-
-      return data;
+      if (error) throw error;
+      
+      // Transform the data to match our Product type
+      return {
+        ...data,
+        sizes: data.product_size // Map the product_size to sizes
+      };
     },
   });
 };
