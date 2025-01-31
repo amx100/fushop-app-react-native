@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
 import { ProductList } from '../components/admin/ProductList';
 import { OrderList } from '../components/admin/OrderList';
-import { ProductModal } from '../components/admin/ProductModal';
+import { ModernProductModal } from '../components/admin/ProductModal';
 import { CategoryModal } from '../components/admin/CategoryModal';
 import { useAuth } from '../providers/auth-provider';
 import { useRouter } from 'expo-router';
@@ -20,6 +20,7 @@ import { CategoryList } from '../components/admin/CategoryList';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import SizeManagement from './admin/sizes';
+
 
 const initialFormData: ProductFormData = {
   title: '',
@@ -57,6 +58,7 @@ export default function AdminDashboard() {
     handleUpdateProduct,
     handleDeleteProduct,
     pickImage: pickImageBase,
+    tempImageUrl,
   } = useAdminProducts();
 
   const {
@@ -212,6 +214,57 @@ export default function AdminDashboard() {
     resetForm();
   };
 
+  const handleCreateNew = () => {
+    setSelectedProduct(null);
+    setFormData(initialFormData);
+    setIsModalVisible(true);
+  };
+
+  const handleEdit = (product: Product) => {
+    setSelectedProduct(product);
+    setFormData({
+      title: product.title,
+      slug: product.slug,
+      price: product.price,
+      heroImage: product.heroImage,
+      category: product.category,
+      imagesUrl: product.imagesUrl || [],
+      sizes: product.sizes || []
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleSubmit = async (data: ProductFormData) => {
+    try {
+      if (selectedProduct) {
+        await handleUpdateProduct(selectedProduct.id, data);
+      } else {
+        await handleCreateProduct(data);
+      }
+      setIsModalVisible(false);
+      setFormData(initialFormData);
+    } catch (error) {
+      console.error('Error submitting product:', error);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await handleDeleteProduct(id);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+    }
+  };
+
+  const handleModalClose = () => {
+    setIsModalVisible(false);
+    setFormData(initialFormData);
+  };
+
+  const handleFormChange = (changes: Partial<ProductFormData>) => {
+    setFormData(prev => ({ ...prev, ...changes }));
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -280,12 +333,9 @@ export default function AdminDashboard() {
           <ProductList
             products={filteredProducts || []}
             isLoading={productsLoading}
-            onEdit={openEditModal}
-            onDelete={handleDeleteProduct}
-            onCreateNew={() => {
-              resetForm();
-              setIsModalVisible(true);
-            }}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onCreateNew={handleCreateNew}
           />
         </>
       )}
@@ -330,16 +380,13 @@ export default function AdminDashboard() {
         <SizeManagement />
       )}
 
-      <ProductModal
+      <ModernProductModal
         visible={isModalVisible}
         formData={formData}
         isEditing={!!selectedProduct}
-        onClose={() => {
-          setIsModalVisible(false);
-          resetForm();
-        }}
-        onSubmit={handleProductSubmit}
-        onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
+        onClose={handleModalClose}
+        onSubmit={handleSubmit}
+        onChange={handleFormChange}
         onPickImage={pickImage}
         categories={categories || []}
       />
