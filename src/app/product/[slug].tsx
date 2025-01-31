@@ -149,9 +149,18 @@ const ProductDetails = () => {
     <View style={styles.container}>
       <Stack.Screen 
         options={{ 
+          title: product.title, 
           headerTransparent: true,
           headerBlurEffect: 'light',
           headerTintColor: '#000',
+          headerStyle: {
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          },
+          headerTitleStyle: {
+            fontSize: 16,
+            fontWeight: '500',
+          },
+          headerShadowVisible: false,
         }} 
       />
 
