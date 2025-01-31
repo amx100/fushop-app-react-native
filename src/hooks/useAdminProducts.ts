@@ -101,6 +101,31 @@ export function useAdminProducts() {
 
   const handleCreateProduct = async (formData: ProductFormData) => {
     try {
+      // First get all available sizes from the database
+      const { data: allSizes, error: sizesError } = await supabase
+        .from('sizes')
+        .select('*');
+
+      if (sizesError) throw sizesError;
+
+      // Create a mapping of size values to their IDs
+      const sizeValueToId = Object.fromEntries(
+        allSizes?.map(size => [size.value, size.id]) || []
+      );
+
+      // Map the form sizes to include correct size_ids
+      const mappedSizes = formData.sizes?.map(size => ({
+        ...size,
+        size_id: sizeValueToId[size.size as keyof typeof sizeValueToId] || 0
+      })) || [];
+
+      // Check if any sizes couldn't be mapped
+      const invalidSizes = mappedSizes.filter(size => size.size_id === 0);
+      if (invalidSizes.length > 0) {
+        throw new Error(`Some sizes are not valid: ${invalidSizes.map(s => s.size).join(', ')}`);
+      }
+
+      // Create the product
       const { data: productData, error: productError } = await supabase
         .from('product')
         .insert({
@@ -116,18 +141,19 @@ export function useAdminProducts() {
 
       if (productError) throw productError;
 
-      if (formData.sizes && formData.sizes.length > 0) {
-        const sizesData = formData.sizes.map(size => ({
+      // Create product sizes with correct size_ids
+      if (mappedSizes.length > 0) {
+        const sizesData = mappedSizes.map(size => ({
           product_id: productData.id,
           size_id: size.size_id,
           quantity: size.quantity
         }));
 
-        const { error: sizesError } = await supabase
+        const { error: sizesInsertError } = await supabase
           .from('product_size')
           .insert(sizesData);
 
-        if (sizesError) throw sizesError;
+        if (sizesInsertError) throw sizesInsertError;
       }
 
       await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
