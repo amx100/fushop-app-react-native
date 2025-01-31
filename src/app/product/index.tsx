@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+/* import { StyleSheet, Text, View } from 'react-native';
 
 const Product = () => {
   return (
@@ -11,3 +11,4 @@ const Product = () => {
 export default Product;
 
 const styles = StyleSheet.create({});
+ */

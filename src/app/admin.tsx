@@ -19,7 +19,7 @@ import * as FileSystem from 'expo-file-system';
 import { CategoryList } from '../components/admin/CategoryList';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import SizeManagement from './admin/sizes';
+import SizeManagement from '../components/admin/SizeModal';
 
 
 const initialFormData: ProductFormData = {

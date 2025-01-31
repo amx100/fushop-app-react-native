@@ -89,9 +89,23 @@ export function ModernProductModal({
       return;
     }
 
+    // Check if size already exists
+    const sizeExists = formData.sizes?.some(s => s.size === newSize);
+    if (sizeExists) {
+      setSizeError(`Size ${newSize} is already added`);
+      return;
+    }
+
     const currentSizes = formData.sizes || [];
     onChange({
-      sizes: [...currentSizes, { size: newSize as SizeType, quantity, id: 0, product_id: 0, size_id: 0, created_at: '' }]
+      sizes: [...currentSizes, { 
+        size: newSize as SizeType, 
+        quantity, 
+        id: 0, 
+        product_id: 0, 
+        size_id: 0, 
+        created_at: '' 
+      }]
     });
 
     setNewSize('');

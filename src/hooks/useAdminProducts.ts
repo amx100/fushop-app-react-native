@@ -141,6 +141,31 @@ export function useAdminProducts() {
 
   const handleUpdateProduct = async (id: number, formData: ProductFormData) => {
     try {
+      // First get all available sizes from the database
+      const { data: allSizes, error: sizesError } = await supabase
+        .from('sizes')
+        .select('*');
+
+      if (sizesError) throw sizesError;
+
+      // Create a mapping of size values to their IDs
+      const sizeValueToId = Object.fromEntries(
+        allSizes?.map(size => [size.value, size.id]) || []
+      );
+
+      // Map the form sizes to include correct size_ids
+      const mappedSizes = formData.sizes?.map(size => ({
+        ...size,
+        size_id: sizeValueToId[size.size as keyof typeof sizeValueToId] || 0
+      })) || [];
+
+      // Check if any sizes couldn't be mapped
+      const invalidSizes = mappedSizes.filter(size => size.size_id === 0);
+      if (invalidSizes.length > 0) {
+        throw new Error(`Some sizes are not valid: ${invalidSizes.map(s => s.size).join(', ')}`);
+      }
+
+      // Update the product details
       const { error: productError } = await supabase
         .from('product')
         .update({
@@ -155,23 +180,44 @@ export function useAdminProducts() {
 
       if (productError) throw productError;
 
-      if (formData.sizes) {
-        await supabase
+      if (mappedSizes.length > 0) {
+        // Get existing sizes for this product
+        const { data: existingSizes } = await supabase
           .from('product_size')
-          .delete()
+          .select('size_id')
           .eq('product_id', id);
 
-        const sizesData = formData.sizes.map(size => ({
-          product_id: id,
-          size_id: size.size_id,
-          quantity: size.quantity
-        }));
+        // Create a set of size_ids that should be deleted
+        const newSizeIds = new Set(mappedSizes.map(size => size.size_id));
+        const sizesToDelete = existingSizes?.filter(
+          size => !newSizeIds.has(size.size_id)
+        ) || [];
 
-        const { error: sizesError } = await supabase
-          .from('product_size')
-          .insert(sizesData);
+        // Delete sizes that are no longer present
+        if (sizesToDelete.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('product_size')
+            .delete()
+            .eq('product_id', id)
+            .in('size_id', sizesToDelete.map(size => size.size_id));
 
-        if (sizesError) throw sizesError;
+          if (deleteError) throw deleteError;
+        }
+
+        // Process each size individually
+        for (const size of mappedSizes) {
+          const { error: sizeError } = await supabase
+            .from('product_size')
+            .upsert({
+              product_id: id,
+              size_id: size.size_id,
+              quantity: size.quantity
+            }, {
+              onConflict: 'product_id,size_id'
+            });
+
+          if (sizeError) throw sizeError;
+        }
       }
 
       await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
