@@ -1,8 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { OrderStatus } from '../types';
-import { Toast } from 'react-native-toast-notifications';
-import { useEffect } from 'react';
 
 type Order = {
   id: number;
@@ -10,7 +8,7 @@ type Order = {
   created_at: string;
   totalPrice: number;
   status: OrderStatus;
-  user_email: { email: string };
+  user_email: { email: string } | string;
   items: {
     product: {
       title: string;
@@ -18,42 +16,20 @@ type Order = {
     };
     size: string;
     quantity: number;
-  }[];
-};
-
-// Add type for raw database response
-type OrderResponse = {
-  id: number;
-  slug: string;
-  created_at: string;
-  totalPrice: number;
-  status: OrderStatus;
-  user_email: { email: string } | null;
-  items: {
-    quantity: number;
-    size: string;
-    product: {
-      title: string;
-      heroImage: string;
-    };
   }[];
 };
 
 export function useAdminOrders() {
-  const queryClient = useQueryClient();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: orders, isLoading } = useQuery({
-    queryKey: ['admin-orders'],
-    queryFn: async () => {
+  const fetchOrders = async () => {
+    try {
       const { data: ordersData, error } = await supabase
         .from('order')
         .select(`
-          id,
-          slug,
-          created_at,
-          totalPrice,
-          status,
-          user_email:users!order_user_id_fkey(email),
+          *,
+          user_email:users(email),
           items:order_item(
             quantity,
             size,
@@ -65,57 +41,60 @@ export function useAdminOrders() {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      // Transform the data to match our Order type
-      return (ordersData as unknown as OrderResponse[]).map((order): Order => ({
-        id: order.id,
-        slug: order.slug,
-        created_at: order.created_at,
-        totalPrice: order.totalPrice,
-        status: order.status,
-        user_email: order.user_email || { email: 'Unknown' },
-        items: order.items.map(item => ({
-          product: {
-            title: item.product.title,
-            heroImage: item.product.heroImage,
-          },
-          size: item.size,
-          quantity: item.quantity,
-        })),
-      }));
-    },
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-  });
+      if (ordersData) {
+        const formattedOrders: Order[] = ordersData.map((order) => ({
+          id: order.id,
+          slug: order.slug,
+          created_at: order.created_at,
+          totalPrice: order.totalPrice,
+          status: order.status as OrderStatus,
+          user_email: order.user_email,
+          items: order.items.map((item: any) => ({
+            product: {
+              title: item.product.title,
+              heroImage: item.product.heroImage,
+            },
+            size: item.size,
+            quantity: item.quantity,
+          })),
+        }));
+        setOrders(formattedOrders);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const updateOrderStatusMutation = useMutation({
-    mutationFn: async ({ orderId, newStatus }: { orderId: number; newStatus: OrderStatus }) => {
+  const updateOrderStatus = async (orderId: number, newStatus: OrderStatus) => {
+    try {
       const { error } = await supabase
         .from('order')
         .update({ status: newStatus })
         .eq('id', orderId);
 
       if (error) throw error;
-      return { orderId, newStatus };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      Toast.show('Order status updated successfully', { type: 'success' });
-    },
-    onError: (error: Error) => {
-      Toast.show('Error updating order status: ' + error.message, { type: 'error' });
-    }
-  });
 
-  const updateOrderStatus = async (orderId: number, newStatus: OrderStatus) => {
-    await updateOrderStatusMutation.mutateAsync({ orderId, newStatus });
+      // Update local state
+      setOrders(orders.map(order => 
+        order.id === orderId 
+          ? { ...order, status: newStatus }
+          : order
+      ));
+    } catch (error) {
+      console.error('Error updating order status:', error);
+    }
   };
 
-  // Set up real-time subscription
   useEffect(() => {
+    fetchOrders();
+
+    // Set up real-time subscription
     const channel = supabase
       .channel('orders-changes')
       .on('postgres_changes', 
@@ -125,7 +104,7 @@ export function useAdminOrders() {
           table: 'order' 
         }, 
         () => {
-          queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+          fetchOrders();
         }
       )
       .subscribe();
@@ -133,12 +112,7 @@ export function useAdminOrders() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, []);
 
-  return { 
-    orders, 
-    isLoading, 
-    updateOrderStatus,
-    refreshOrders: () => queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
-  };
-} 
+  return { orders, isLoading, updateOrderStatus, refreshOrders: fetchOrders };
+}

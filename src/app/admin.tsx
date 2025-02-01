@@ -151,9 +151,8 @@ export default function AdminDashboard() {
     
     // Search by order slug/ID
     const slugMatch = order.slug.toLowerCase().includes(searchLower);
-    
-    // Search by customer email
-    const emailMatch = order.user_email?.email.toLowerCase().includes(searchLower) || false;
+    // Pretraga po e-pošti kupca
+    const emailMatch = typeof order.user_email === 'object' && order.user_email.email.toLowerCase().includes(searchLower) || false;
     
     return slugMatch || emailMatch;
   });
@@ -254,7 +253,7 @@ export default function AdminDashboard() {
         <OrderList
           orders={filteredOrders ? filteredOrders.map(order => ({
             ...order,
-            user_email: order.user_email?.email || 'Unknown'
+            user_email: typeof order.user_email === 'string' ? order.user_email : order.user_email?.email || 'Unknown'
           })) : []}
           isLoading={ordersLoading}
           onUpdateStatus={updateOrderStatus}
