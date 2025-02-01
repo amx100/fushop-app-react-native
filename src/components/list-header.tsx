@@ -60,18 +60,20 @@ export const ListHeader = ({
             onPress={handleSignOut}
             style={styles.signOutButton}
           >
-            <FontAwesome name='sign-out' size={25} color='red' />
+            <FontAwesome name='sign-out' size={25} color='#eb620b' />
           </TouchableOpacity>
         </View>
       </View>
       <View style={styles.heroContainer}>
         <Image
-          source={require('../../assets/images/hero.png')}
+          source={{
+            uri: 'https://laoiuxdnacadkmyqwszt.supabase.co/storage/v1/object/public/app-images//KUPI%20SADA%20(2).png',
+          }}
           style={styles.heroImage}
         />
       </View>
       <View style={styles.categoriesContainer}>
-        <Text style={styles.sectionTitle}>Categories</Text>
+        <Text style={styles.sectionTitle}>Kategorije</Text>
         <FlatList
           data={categories}
           renderItem={({ item }) => (
@@ -146,6 +148,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 10,
+    textAlign: 'center',
   },
   category: {
     width: 100,
@@ -153,8 +156,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   categoryImage: {
-    width: 60,
-    height: 60,
+    width: 80,
+    height: 120,
     borderRadius: 30,
     marginBottom: 8,
   },
@@ -163,7 +166,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -5,
     right: 10,
-    backgroundColor: '#1BC464',
+    backgroundColor: '#fa7d15',
     borderRadius: 10,
     width: 20,
     height: 20,
