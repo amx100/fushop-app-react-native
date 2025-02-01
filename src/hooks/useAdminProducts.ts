@@ -76,7 +76,7 @@ export function useAdminProducts() {
         return publicUrl;
       }
     } catch (error) {
-      console.log('Error uploading image:', error);
+   
       return null;
     }
   };
@@ -118,18 +118,32 @@ export function useAdminProducts() {
 
       if (sizesError) throw sizesError;
 
+
+
       const sizeValueToId = Object.fromEntries(
-        allSizes?.map(size => [size.value, size.id]) || []
+        allSizes?.map(size => [
+          size.value.toUpperCase().replace(/\s+/g, ''),
+          size.id
+        ]) || []
       );
 
-      const mappedSizes = formData.sizes?.map(size => ({
-        ...size,
-        size_id: sizeValueToId[size.size as keyof typeof sizeValueToId] || 0
-      })) || [];
+      const mappedSizes = formData.sizes?.map(size => {
+        if (!size.size) {
+          throw new Error('Size is undefined');
+        }
+        const sizeValue = size.size.toUpperCase().replace(/\s+/g, '');
+        const size_id = sizeValueToId[sizeValue];
+        
+        if (!size_id) {
 
-      if (mappedSizes.some(size => size.size_id === 0)) {
-        throw new Error('Some sizes are not valid');
-      }
+          throw new Error(`Invalid size: ${size.size}. Available sizes: ${allSizes?.map(s => s.value).join(', ')}`);
+        }
+
+        return {
+          ...size,
+          size_id
+        };
+      }) || [];
 
       const { data: productData, error: productError } = await supabase
         .from('product')
@@ -179,18 +193,32 @@ export function useAdminProducts() {
 
       if (sizesError) throw sizesError;
 
+ 
+
       const sizeValueToId = Object.fromEntries(
-        allSizes?.map(size => [size.value, size.id]) || []
+        allSizes?.map(size => [
+          size.value.toUpperCase().replace(/\s+/g, ''),
+          size.id
+        ]) || []
       );
 
-      const mappedSizes = formData.sizes?.map(size => ({
-        ...size,
-        size_id: sizeValueToId[size.size as keyof typeof sizeValueToId] || 0
-      })) || [];
+      const mappedSizes = formData.sizes?.map(size => {
+        if (!size.size) {
+          throw new Error('Size is undefined');
+        }
+        const sizeValue = size.size.toUpperCase().replace(/\s+/g, '');
+        const size_id = sizeValueToId[sizeValue];
+        
+        if (!size_id) {
+    
+          throw new Error(`Invalid size: ${size.size}. Available sizes: ${allSizes?.map(s => s.value).join(', ')}`);
+        }
 
-      if (mappedSizes.some(size => size.size_id === 0)) {
-        throw new Error('Some sizes are not valid');
-      }
+        return {
+          ...size,
+          size_id
+        };
+      }) || [];
 
       const { error: productError } = await supabase
         .from('product')
@@ -207,39 +235,24 @@ export function useAdminProducts() {
       if (productError) throw productError;
 
       if (mappedSizes.length > 0) {
-        const { data: existingSizes } = await supabase
+        const { error: deleteError } = await supabase
           .from('product_size')
-          .select('size_id')
+          .delete()
           .eq('product_id', id);
 
-        const newSizeIds = new Set(mappedSizes.map(size => size.size_id));
-        const sizesToDelete = existingSizes?.filter(
-          size => !newSizeIds.has(size.size_id)
-        ) || [];
+        if (deleteError) throw deleteError;
 
-        if (sizesToDelete.length > 0) {
-          const { error: deleteError } = await supabase
-            .from('product_size')
-            .delete()
-            .eq('product_id', id)
-            .in('size_id', sizesToDelete.map(size => size.size_id));
+        const sizesData = mappedSizes.map(size => ({
+          product_id: id,
+          size_id: size.size_id,
+          quantity: size.quantity
+        }));
 
-          if (deleteError) throw deleteError;
-        }
+        const { error: sizesInsertError } = await supabase
+          .from('product_size')
+          .insert(sizesData);
 
-        for (const size of mappedSizes) {
-          const { error: sizeError } = await supabase
-            .from('product_size')
-            .upsert({
-              product_id: id,
-              size_id: size.size_id,
-              quantity: size.quantity
-            }, {
-              onConflict: 'product_id,size_id'
-            });
-
-          if (sizeError) throw sizeError;
-        }
+        if (sizesInsertError) throw sizesInsertError;
       }
 
       return { id, formData };
