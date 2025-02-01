@@ -4,7 +4,7 @@ import { Tables } from '../types/database.types';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
-const HORIZONTAL_SPACING = 16; // Padding from screen edges
+const HORIZONTAL_SPACING = 20; // Padding from screen edges
 const COLUMN_GAP = 2;
 // Calculate item width accounting for screen padding and gap
 const ITEM_WIDTH = (width - (2 * HORIZONTAL_SPACING) - COLUMN_GAP) / 2;
@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   itemImageContainer: {
+    marginTop:20,
     width: '100%',
     aspectRatio: 3/4,
     backgroundColor: '#f5f5f5',

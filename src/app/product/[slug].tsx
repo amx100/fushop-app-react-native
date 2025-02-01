@@ -193,7 +193,7 @@ const ProductDetails = () => {
           </View>
 
           <View style={styles.sizesContainer}>
-        <Text style={styles.sectionTitle}>Select Size</Text>
+        <Text style={styles.sectionTitle}>Izaberite veličinu</Text>
         <View style={styles.sizeButtons}>
           {product.sizes?.map((sizeData: ProductSize) => (
             <TouchableOpacity
@@ -223,7 +223,7 @@ const ProductDetails = () => {
                 selectedSize === sizeData.size && styles.selectedStockText,
                 sizeData.quantity === 0 && styles.disabledSizeText,
               ]}>
-                {sizeData.quantity} left
+                {sizeData.quantity} na lageru
               </Text>
             </TouchableOpacity>
           ))}
@@ -304,9 +304,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   price: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#6366f1',
+    color: '#cc783f',
     marginBottom: 24,
   },
   galleryContainer: {
@@ -344,14 +344,14 @@ const styles = StyleSheet.create({
     minWidth: 70,
   },
   selectedSizeButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#cc783f',
   },
   disabledSizeButton: {
     backgroundColor: '#f3f4f6',
     opacity: 0.5,
   },
   sizeButtonText: {
-    color: '#111827',
+    color: '#663c20',
     fontSize: 16,
     fontWeight: '500',
   },
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   },
   addToCartButton: {
     flex: 1,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#ff964f',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

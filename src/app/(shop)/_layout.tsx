@@ -4,12 +4,13 @@ import { ActivityIndicator, StyleSheet } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '../../providers/auth-provider';
 import { CartProvider } from '../../contexts/CartContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: string;
 }) {
-  return <FontAwesome size={24} {...props} style={{ color: '#1BC464' }} />;
+  return <FontAwesome size={24} {...props} style={{ color: '#fb9b3c' }} />;
 }
 const TabsLayout = () => {
   const { session, isLoading } = useAuth();
@@ -22,7 +23,13 @@ const TabsLayout = () => {
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <Tabs
           screenOptions={{
-            tabBarActiveTintColor: '#1BC464',
+            tabBarBackground: () => (
+              <LinearGradient
+                colors={['#1e1e1e', 'rgb(28,28,28)']}
+                style={{ flex: 1 }}
+              />
+            ),
+            tabBarActiveTintColor: 'white',
             tabBarInactiveTintColor: 'gray',
             tabBarLabelStyle: { fontSize: 16 },
             tabBarStyle: {
@@ -36,7 +43,7 @@ const TabsLayout = () => {
           <Tabs.Screen
             name='index'
             options={{
-              title: 'shop',
+              title: 'Proizvodi',
               tabBarIcon(props) {
                 return <TabBarIcon {...props} name='shopping-cart' />;
               },
@@ -45,7 +52,7 @@ const TabsLayout = () => {
           <Tabs.Screen
             name='orders'
             options={{
-              title: 'Orders',
+              title: 'Porudžbine',
               tabBarIcon(props) {
                 return <TabBarIcon {...props} name='book' />;
               },

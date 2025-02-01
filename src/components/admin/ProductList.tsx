@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Product } from '../../types';
 import RemoteImage from '../RemoteImage';
+import Icon from '@rneui/themed/dist/Icon';
 // ... import other necessary components
 
 type ProductListProps = {
@@ -14,54 +15,53 @@ type ProductListProps = {
 export function ProductList({ products, isLoading, onEdit, onDelete, onCreateNew }: ProductListProps) {
   return (
     <ScrollView style={styles.productList}>
-      <TouchableOpacity 
-        style={styles.createButton}
-        onPress={onCreateNew}
-      >
-        <Text style={styles.buttonText}>Create New Product</Text>
-      </TouchableOpacity>
+    <TouchableOpacity 
+      style={styles.createButton}
+      onPress={onCreateNew}
+    >
+      <Text style={styles.buttonText}>Create New Product</Text>
+    </TouchableOpacity>
 
-      {isLoading ? (
-        <Text>Loading products...</Text>
-      ) : (
-        products?.map((product) => (
-          <View key={product.id} style={styles.productItem}>
-            <View style={styles.productHeader}>
-              {product.heroImage ? (
-                <RemoteImage 
-                  path={product.heroImage}
-                  fallback="https://placehold.co/80x80"
-                  style={styles.productImage}
-                />
-              ) : (
-                <View style={styles.noImage}>
-                  <Text style={styles.noImageText}>No Image</Text>
-                </View>
-              )}
-              <View style={styles.productInfo}>
-                <Text style={styles.productTitle}>{product.title}</Text>
-                <Text style={styles.productPrice}>Price: ${product.price}</Text>
-  
+    {isLoading ? (
+      <Text>Loading products...</Text>
+    ) : (
+      products?.map((product) => (
+        <View key={product.id} style={styles.productItem}>
+          <View style={styles.productHeader}>
+            {product.heroImage ? (
+              <RemoteImage 
+                path={product.heroImage}
+                fallback="https://placehold.co/80x80"
+                style={styles.productImage}
+              />
+            ) : (
+              <View style={styles.noImage}>
+                <Text style={styles.noImageText}>No Image</Text>
               </View>
-            </View>
-            <View style={styles.productActions}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.editButton]}
-                onPress={() => onEdit(product)}
-              >
-                <Text style={styles.buttonText}>Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.deleteButton]}
-                onPress={() => onDelete(product.id)}
-              >
-                <Text style={styles.buttonText}>Delete</Text>
-              </TouchableOpacity>
+            )}
+            <View style={styles.productInfo}>
+              <Text style={styles.productTitle}>{product.title}</Text>
+              <Text style={styles.productPrice}>Price: ${product.price}</Text>
             </View>
           </View>
-        ))
-      )}
-    </ScrollView>
+          <View style={styles.productActions}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.editButton]}
+              onPress={() => onEdit(product)}
+            >
+              <Icon name="edit" size={20} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteButton]}
+              onPress={() => onDelete(product.id)}
+            >
+              <Icon name="delete" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))
+    )}
+  </ScrollView>
   );
 }
 
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
       marginBottom: 20,
     },
     createButton: {
-      backgroundColor: '#4CAF50',
+      backgroundColor: '#13293D',
       padding: 15,
       borderRadius: 8,
       alignItems: 'center',
