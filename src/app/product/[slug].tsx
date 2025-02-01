@@ -2,6 +2,7 @@ import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
 import {
   FlatList,
   Image,
+  ImageBackground,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,7 +20,7 @@ import { getProduct } from '../../api/api';
 import { ActivityIndicator } from 'react-native';
 import { Product, ProductSize, SizeType } from '../../types';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const ProductDetails = () => {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -32,7 +33,6 @@ const ProductDetails = () => {
   const [selectedSize, setSelectedSize] = useState<SizeType | ''>('');
   const [quantity, setQuantity] = useState(initialQuantity);
 
-  // Loading & Error States remain the same
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -51,7 +51,6 @@ const ProductDetails = () => {
     );
   }
 
-  // All handler functions remain the same
   const getMaxQuantityForSize = (size: string) => {
     const typedProduct = product as Product;
     const sizeData = typedProduct.sizes?.find(s => s.size === size);
@@ -116,11 +115,14 @@ const ProductDetails = () => {
 
     const maxQuantity = getMaxQuantityForSize(selectedSize);
     if (quantity > maxQuantity) {
-      toast.show(`Cannot add ${quantity} items. Only ${maxQuantity} available in size ${selectedSize}`, {
-        type: 'warning',
-        placement: 'top',
-        duration: 1500,
-      });
+      toast.show(
+        `Cannot add ${quantity} items. Only ${maxQuantity} available in size ${selectedSize}`,
+        {
+          type: 'warning',
+          placement: 'top',
+          duration: 1500,
+        }
+      );
       return;
     }
 
@@ -133,9 +135,9 @@ const ProductDetails = () => {
       quantity,
       size: selectedSize,
       size_id: sizeData.size_id,
-      maxQuantity: maxQuantity
+      maxQuantity: maxQuantity,
     });
-    
+
     toast.show('Added to cart', {
       type: 'success',
       placement: 'top',
@@ -147,9 +149,9 @@ const ProductDetails = () => {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen 
-        options={{ 
-          title: product.title, 
+      <Stack.Screen
+        options={{
+          title: product.title,
           headerTransparent: true,
           headerBlurEffect: 'light',
           headerTintColor: '#000',
@@ -161,23 +163,26 @@ const ProductDetails = () => {
             fontWeight: '500',
           },
           headerShadowVisible: false,
-        }} 
+        }}
       />
 
       <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: product.heroImage }} style={styles.heroImage} />
+        {/* Full Hero Image Section */}
+        <ImageBackground
+          source={{ uri: product.heroImage }}
+          style={styles.heroContainer}
+          resizeMode="cover"
+        >
           <LinearGradient
-            colors={['transparent', 'rgba(255,255,255,0.9)', '#fff']}
-            style={styles.imageOverlay}
+            colors={['rgba(0,0,0,0.0)', 'rgba(0,0,0,0.6)']}
+            style={styles.gradientOverlay}
           />
-        </View>
+        </ImageBackground>
 
-        <View style={styles.detailsContainer}>
-          <Text style={styles.title}>{product.title}</Text>
-          <Text style={styles.price}>
-            {product.price.toFixed(2)} RSD
-          </Text>
+        {/* Details Card - overlapping the hero image */}
+        <View style={styles.detailsCard}>
+          <Text style={styles.cardTitle}>{product.title}</Text>
+          <Text style={styles.cardPrice}>{product.price.toFixed(2)} RSD</Text>
 
           <View style={styles.galleryContainer}>
             <FlatList
@@ -193,42 +198,46 @@ const ProductDetails = () => {
           </View>
 
           <View style={styles.sizesContainer}>
-        <Text style={styles.sectionTitle}>Izaberite veličinu</Text>
-        <View style={styles.sizeButtons}>
-          {product.sizes?.map((sizeData: ProductSize) => (
-            <TouchableOpacity
-              key={`${product.id}-${sizeData.size_id}`}
-              style={[
-                styles.sizeButton,
-                selectedSize === sizeData.size && styles.selectedSizeButton,
-                sizeData.quantity === 0 && styles.disabledSizeButton,
-              ]}
-              onPress={() => {
-                if (sizeData.quantity > 0) {
-                  setSelectedSize(sizeData.size as SizeType);
-                  setQuantity(0);
-                }
-              }}
-              disabled={sizeData.quantity === 0}
-            >
-              <Text style={[
-                styles.sizeButtonText,
-                selectedSize === sizeData.size && styles.selectedSizeText,
-                sizeData.quantity === 0 && styles.disabledSizeText,
-              ]}>
-                {sizeData.size}
-              </Text>
-              <Text style={[
-                styles.stockText,
-                selectedSize === sizeData.size && styles.selectedStockText,
-                sizeData.quantity === 0 && styles.disabledSizeText,
-              ]}>
-                {sizeData.quantity} na lageru
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+            <Text style={styles.sectionTitle}>Izaberite veličinu</Text>
+            <View style={styles.sizeButtons}>
+              {product.sizes?.map((sizeData: ProductSize) => (
+                <TouchableOpacity
+                  key={`${product.id}-${sizeData.size_id}`}
+                  style={[
+                    styles.sizeButton,
+                    selectedSize === sizeData.size && styles.selectedSizeButton,
+                    sizeData.quantity === 0 && styles.disabledSizeButton,
+                  ]}
+                  onPress={() => {
+                    if (sizeData.quantity > 0) {
+                      setSelectedSize(sizeData.size as SizeType);
+                      setQuantity(0);
+                    }
+                  }}
+                  disabled={sizeData.quantity === 0}
+                >
+                  <Text
+                    style={[
+                      styles.sizeButtonText,
+                      selectedSize === sizeData.size && styles.selectedSizeText,
+                      sizeData.quantity === 0 && styles.disabledSizeText,
+                    ]}
+                  >
+                    {sizeData.size}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.stockText,
+                      selectedSize === sizeData.size && styles.selectedStockText,
+                      sizeData.quantity === 0 && styles.disabledSizeText,
+                    ]}
+                  >
+                    {sizeData.quantity} na lageru
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
       </ScrollView>
 
@@ -241,9 +250,9 @@ const ProductDetails = () => {
           >
             <Text style={styles.quantityButtonText}>−</Text>
           </TouchableOpacity>
-          
+
           <Text style={styles.quantity}>{quantity}</Text>
-          
+
           <TouchableOpacity
             style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
             onPress={handleIncreaseQuantity}
@@ -256,7 +265,7 @@ const ProductDetails = () => {
         <TouchableOpacity
           style={[
             styles.addToCartButton,
-            { opacity: (quantity === 0 || !selectedSize) ? 0.5 : 1 },
+            { opacity: quantity === 0 || !selectedSize ? 0.5 : 1 },
           ]}
           onPress={addToCart}
           disabled={quantity === 0 || !selectedSize}
@@ -275,35 +284,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  imageContainer: {
-    height: width * 1.2,
+  /* Full hero image taking the full width */
+  heroContainer: {
     width: '100%',
-    position: 'relative',
+    height: height * 0.5, // Adjust this value to control how much screen the image takes
   },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+  gradientOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
-  imageOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 100,
+  /* Details card that overlaps the hero image */
+  detailsCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+    paddingTop: 32,
+    paddingHorizontal: 24,
+    paddingBottom: 100,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
-  detailsContainer: {
-    padding: 24,
-    paddingTop: 0,
-  },
-  title: {
+  cardTitle: {
     fontSize: 32,
     fontWeight: '600',
     color: '#111827',
     marginBottom: 8,
     letterSpacing: -0.5,
   },
-  price: {
+  cardPrice: {
     fontSize: 18,
     fontWeight: '600',
     color: '#cc783f',
@@ -322,7 +333,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
   },
   sizesContainer: {
-    marginBottom: 100,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
