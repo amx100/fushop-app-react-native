@@ -29,71 +29,83 @@ type OrderListProps = {
 export function OrderList({ orders, isLoading, onUpdateStatus }: OrderListProps) {
   const statuses: OrderStatus[] = ['Pending', 'Completed', 'Shipped', 'InTransit'];
 
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.messageText}>Loading orders...</Text>
+      </View>
+    );
+  }
+
+  if (!orders || orders.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.messageText}>No orders found</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
-      {isLoading ? (
-        <Text>Loading orders...</Text>
-      ) : (
-        orders?.map((order) => (
-          <View key={order.id} style={styles.orderContainer}>
-            <View style={styles.orderContent}>
-              <View style={styles.orderDetailsContainer}>
-                <Text style={styles.orderItem}>Order #{order.slug}</Text>
-                <Text style={styles.orderEmail}>
-                  Customer: {typeof order.user_email === 'string' ? order.user_email : order.user_email?.email || 'No Email Available'}
-                </Text>
-                <Text style={styles.orderDetails}>
-                  Total Price: ${order.totalPrice.toFixed(2)}
-                </Text>
-                <Text style={styles.orderDate}>
-                  {format(new Date(order.created_at), 'MMM dd, yyyy')}
-                </Text>
+      {orders.map((order) => (
+        <View key={order.id} style={styles.orderContainer}>
+          <View style={styles.orderContent}>
+            <View style={styles.orderDetailsContainer}>
+              <Text style={styles.orderItem}>Order #{order.slug}</Text>
+              <Text style={styles.orderEmail}>
+                Customer: {typeof order.user_email === 'string' ? order.user_email : order.user_email?.email || 'No Email Available'}
+              </Text>
+              <Text style={styles.orderDetails}>
+                Total Price: ${order.totalPrice.toFixed(2)}
+              </Text>
+              <Text style={styles.orderDate}>
+                {format(new Date(order.created_at), 'MMM dd, yyyy')}
+              </Text>
 
-                <View style={styles.itemsContainer}>
-                  {order.items?.map((item, index) => (
-                    <View key={index} style={styles.orderItemRow}>
-                      <Image
-                        source={{ 
-                          uri: item.product?.heroImage || 'https://via.placeholder.com/50'
-                        }}
-                        style={styles.productImage}
-                      />
-                      <View style={styles.itemDetails}>
-                        <Text style={styles.productTitle}>
-                          {item.product?.title || 'Product Name Not Available'}
-                        </Text>
-                        <Text style={styles.itemInfo}>
-                          Size: {item.size || 'N/A'} • Qty: {item.quantity || 0}
-                        </Text>
-                      </View>
+              <View style={styles.itemsContainer}>
+                {order.items?.map((item, index) => (
+                  <View key={index} style={styles.orderItemRow}>
+                    <Image
+                      source={{ 
+                        uri: item.product?.heroImage || 'https://via.placeholder.com/50'
+                      }}
+                      style={styles.productImage}
+                    />
+                    <View style={styles.itemDetails}>
+                      <Text style={styles.productTitle}>
+                        {item.product?.title || 'Product Name Not Available'}
+                      </Text>
+                      <Text style={styles.itemInfo}>
+                        Size: {item.size || 'N/A'} • Qty: {item.quantity || 0}
+                      </Text>
                     </View>
-                  ))}
-                </View>
-
-                <View style={styles.statusButtons}>
-                  {statuses.map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={[
-                        styles.statusButton,
-                        styles[`statusBadge_${status}`],
-                        order.status === status && styles.statusButtonDisabled
-                      ]}
-                      disabled={order.status === status}
-                      onPress={() => onUpdateStatus(order.id, status)}
-                    >
-                      <Text style={styles.statusButtonText}>{status}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                  </View>
+                ))}
               </View>
-              <View style={[styles.statusBadge, styles[`statusBadge_${order.status}`]]}>
-                <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
+
+              <View style={styles.statusButtons}>
+                {statuses.map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.statusButton,
+                      styles[`statusBadge_${status}`],
+                      order.status === status && styles.statusButtonDisabled
+                    ]}
+                    disabled={order.status === status}
+                    onPress={() => onUpdateStatus(order.id, status)}
+                  >
+                    <Text style={styles.statusButtonText}>{status}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
+            <View style={[styles.statusBadge, styles[`statusBadge_${order.status}`]]}>
+              <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
+            </View>
           </View>
-        ))
-      )}
+        </View>
+      ))}
     </ScrollView>
   );
 }
@@ -210,7 +222,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 4,
-    minWidth: 80,
+    minWidth: 120,
     alignItems: 'center',
   },
   statusButtonDisabled: {
@@ -220,5 +232,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  messageText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#666',
   },
 });

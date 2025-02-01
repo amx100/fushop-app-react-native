@@ -117,14 +117,14 @@ const styles = StyleSheet.create({
       marginBottom: 10,
     },
     productImage: {
-      width: 80,
-      height: 80,
+      width: 100,
+      height: 100,
       borderRadius: 8,
       marginRight: 15,
     },
     noImage: {
-      width: 80,
-      height: 80,
+      width: 100,
+      height: 100,
       borderRadius: 8,
       backgroundColor: '#ddd',
       justifyContent: 'center',
@@ -165,10 +165,10 @@ const styles = StyleSheet.create({
       alignItems: 'center',
     },
     editButton: {
-      backgroundColor: '#2196F3',
+      backgroundColor: '#B3A394',
     },
     deleteButton: {
-      backgroundColor: '#f44336',
+      backgroundColor: '#D64933',
     },
     signOutButton: {
       backgroundColor: '#d32f2f',
