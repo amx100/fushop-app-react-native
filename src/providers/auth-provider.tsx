@@ -7,17 +7,20 @@ import {
   useState,
 } from 'react';
 import { supabase } from '../lib/supabase';
+import { Alert } from 'react-native';
 
 type AuthData = {
   session: Session | null;
-  mounting: boolean;
+  isLoading: boolean;
   user: any;
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthData>({
   session: null,
-  mounting: true,
+  isLoading: true,
   user: null,
+  signOut: async () => {},
 });
 
 export default function AuthProvider({ children }: PropsWithChildren) {
@@ -31,56 +34,103 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     stripe_customer_id: string | null;
     type: string | null;
   } | null>(null);
-  const [mounting, setMounting] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchUserData = async (userId: string) => {
-    const { data: userData, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    try {
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    if (error) {
-      console.error('Error fetching user data:', error);
-    } else {
+      if (error) throw error;
       setUser(userData);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      // Get current session before signing out
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      if (!currentSession) {
+        // If no session, just clear the state
+        setSession(null);
+        setUser(null);
+        return;
+      }
+
+      // Attempt to sign out
+      await supabase.auth.signOut();
+      
+      // Clear state regardless of signout success
+      setSession(null);
+      setUser(null);
+      
+    } catch (error) {
+      console.error('Error in signOut:', error);
+      Alert.alert('Error', 'Failed to sign out completely. Please restart the app.');
     }
   };
 
   useEffect(() => {
-    const fetchSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
+    let mounted = true;
 
-        if (session?.user?.id) {
-          await fetchUserData(session.user.id);
+    const initializeAuth = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Get initial session
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
+        
+        if (mounted) {
+          setSession(initialSession);
+          if (initialSession?.user?.id) {
+            await fetchUserData(initialSession.user.id);
+          }
         }
       } catch (error) {
-        console.error('Error fetching session:', error);
+        console.error('Error initializing auth:', error);
       } finally {
-        setMounting(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    fetchSession();
+    initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session?.user?.id) {
-        await fetchUserData(session.user.id);
-      } else {
-        setUser(null);
+    // Set up auth state change subscription
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        console.log('Auth state changed:', event, 'Session:', currentSession?.user?.id);
+        
+        if (mounted) {
+          setSession(currentSession);
+          
+          if (event === 'SIGNED_OUT' || !currentSession) {
+            setUser(null);
+          } else if (currentSession?.user?.id) {
+            await fetchUserData(currentSession.user.id);
+          }
+        }
       }
-    });
+    );
 
+    // Cleanup
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, mounting, user }}>
+    <AuthContext.Provider value={{ session, isLoading, user, signOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -88,7 +138,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
