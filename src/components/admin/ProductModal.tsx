@@ -13,7 +13,7 @@ import {
   Platform,
   KeyboardAvoidingView
 } from 'react-native';
-import { ProductFormData, Category, SizeType } from '../../types';
+import { ProductFormData, Category, SizeType } from '../../types/index';
 import { Picker } from '@react-native-picker/picker';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';

@@ -7,7 +7,7 @@ export type Product = {
   slug: string;
   imagesUrl: string[];
   sizes?: ProductSize[];
-};
+}
 
 export type ProductFormData = Omit<Product, 'id'> & {
   sizes?: ProductSize[];
@@ -70,3 +70,11 @@ export interface CartItem {
 export interface Cart {
   items: CartItem[];
 }
+
+interface Size {
+  id: string;
+  name: string;
+  quantity: number;
+}
+
+

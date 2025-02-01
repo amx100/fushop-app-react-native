@@ -42,6 +42,19 @@ export function ProductList({ products, isLoading, onEdit, onDelete, onCreateNew
             <View style={styles.productInfo}>
               <Text style={styles.productTitle}>{product.title}</Text>
               <Text style={styles.productPrice}>Price: ${product.price}</Text>
+              
+              <View style={styles.sizesContainer}>
+                <Text style={styles.sizesTitle}>Available Sizes:</Text>
+                <View style={styles.sizesGrid}>
+                  {product.sizes?.map((size) => (
+                    <View key={size.id} style={styles.sizeItem}>
+                      <Text style={styles.sizeText}>
+                        {size.size}: {size.quantity}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
             </View>
           </View>
           <View style={styles.productActions}>
@@ -352,5 +365,29 @@ const styles = StyleSheet.create({
     statusButtonText: {
       color: '#fff',
       fontWeight: 'bold',
+    },
+    sizesContainer: {
+      marginTop: 8,
+    },
+    sizesTitle: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: '#666',
+      marginBottom: 4,
+    },
+    sizesGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    sizeItem: {
+      backgroundColor: '#e3e3e3',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 4,
+    },
+    sizeText: {
+      fontSize: 12,
+      color: '#333',
     },
   }); 
