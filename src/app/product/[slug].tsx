@@ -7,33 +7,36 @@ import {
   TouchableOpacity,
   View,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { useToast } from 'react-native-toast-notifications';
 import { useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 import { useCartStore } from '../../store/cart-store';
 import { getProduct } from '../../api/api';
 import { ActivityIndicator } from 'react-native';
 import { Product, ProductSize, SizeType } from '../../types';
 
+const { width } = Dimensions.get('window');
+
 const ProductDetails = () => {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const toast = useToast();
 
   const { data: product, error, isLoading } = getProduct(slug);
-
   const { items, addItem, incrementItem, decrementItem } = useCartStore();
-
   const cartItem = items.find(item => item.id === product?.id);
-
   const initialQuantity = cartItem ? cartItem.quantity : 0;
   const [selectedSize, setSelectedSize] = useState<SizeType | ''>('');
   const [quantity, setQuantity] = useState(initialQuantity);
 
+  // Loading & Error States remain the same
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#6366f1" />
       </View>
     );
   }
@@ -47,6 +50,8 @@ const ProductDetails = () => {
       </View>
     );
   }
+
+  // All handler functions remain the same
   const getMaxQuantityForSize = (size: string) => {
     const typedProduct = product as Product;
     const sizeData = typedProduct.sizes?.find(s => s.size === size);
@@ -141,76 +146,104 @@ const ProductDetails = () => {
   const totalPrice = (product.price * quantity).toFixed(2);
 
   return (
-    <ScrollView style={styles.container}>
-      <Stack.Screen options={{ title: product.title }} />
+    <View style={styles.container}>
+      <Stack.Screen 
+        options={{ 
+          title: product.title, 
+          headerTransparent: true,
+          headerBlurEffect: 'light',
+          headerTintColor: '#000',
+          headerStyle: {
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          },
+          headerTitleStyle: {
+            fontSize: 16,
+            fontWeight: '500',
+          },
+          headerShadowVisible: false,
+        }} 
+      />
 
-      <Image source={{ uri: product.heroImage }} style={styles.heroImage} />
+      <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+        <View style={styles.imageContainer}>
+          <Image source={{ uri: product.heroImage }} style={styles.heroImage} />
+          <LinearGradient
+            colors={['transparent', 'rgba(255,255,255,0.9)', '#fff']}
+            style={styles.imageOverlay}
+          />
+        </View>
 
-      <View style={{ padding: 16, flex: 1 }}>
-        <Text style={styles.title}>Title: {product.title}</Text>
-        <Text style={styles.slug}>Slug: {product.slug}</Text>
-        <View style={styles.priceContainer}>
+        <View style={styles.detailsContainer}>
+          <Text style={styles.title}>{product.title}</Text>
           <Text style={styles.price}>
-            Unit Price: ${product.price.toFixed(2)}
+            {product.price.toFixed(2)} RSD
           </Text>
-          <Text style={styles.price}>Total Price: ${totalPrice}</Text>
-        </View>
 
-        <View style={styles.sizesContainer}>
-          <Text style={styles.sizeTitle}>Select Size:</Text>
-          <View style={styles.sizeButtons}>
-            {product.sizes?.map((sizeData: ProductSize) => (
-              <TouchableOpacity
-                key={`${product.id}-${sizeData.size_id}`}
-                style={[
-                  styles.sizeButton,
-                  selectedSize === sizeData.size && styles.selectedSizeButton,
-                  sizeData.quantity === 0 && styles.disabledSizeButton,
-                ]}
-                onPress={() => {
-                  if (sizeData.quantity > 0) {
-                    setSelectedSize(sizeData.size as SizeType);
-                    setQuantity(0);
-                  }
-                }}
-                disabled={sizeData.quantity === 0}
-              >
-                <Text style={[
-                  styles.sizeButtonText,
-                  selectedSize === sizeData.size && styles.selectedSizeText,
-                  sizeData.quantity === 0 && styles.disabledSizeText,
-                ]}>
-                  {sizeData.size}
-                </Text>
-                <Text style={styles.stockText}>
-                  ({sizeData.quantity} left)
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.galleryContainer}>
+            <FlatList
+              data={product.imagesUrl}
+              keyExtractor={(item, index) => `${product.id}-image-${index}`}
+              renderItem={({ item }) => (
+                <Image source={{ uri: item }} style={styles.thumbnailImage} />
+              )}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.thumbnailsContainer}
+            />
           </View>
+
+          <View style={styles.sizesContainer}>
+        <Text style={styles.sectionTitle}>Select Size</Text>
+        <View style={styles.sizeButtons}>
+          {product.sizes?.map((sizeData: ProductSize) => (
+            <TouchableOpacity
+              key={`${product.id}-${sizeData.size_id}`}
+              style={[
+                styles.sizeButton,
+                selectedSize === sizeData.size && styles.selectedSizeButton,
+                sizeData.quantity === 0 && styles.disabledSizeButton,
+              ]}
+              onPress={() => {
+                if (sizeData.quantity > 0) {
+                  setSelectedSize(sizeData.size as SizeType);
+                  setQuantity(0);
+                }
+              }}
+              disabled={sizeData.quantity === 0}
+            >
+              <Text style={[
+                styles.sizeButtonText,
+                selectedSize === sizeData.size && styles.selectedSizeText,
+                sizeData.quantity === 0 && styles.disabledSizeText,
+              ]}>
+                {sizeData.size}
+              </Text>
+              <Text style={[
+                styles.stockText,
+                selectedSize === sizeData.size && styles.selectedStockText,
+                sizeData.quantity === 0 && styles.disabledSizeText,
+              ]}>
+                {sizeData.quantity} left
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
+      </View>
+        </View>
+      </ScrollView>
 
-        <FlatList
-          data={product.imagesUrl}
-          keyExtractor={(item, index) => `${product.id}-image-${index}`}
-          renderItem={({ item }) => (
-            <Image source={{ uri: item }} style={styles.image} />
-          )}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.imagesContainer}
-        />
-
-        <View style={styles.buttonContainer}>
+      <BlurView intensity={90} tint="light" style={styles.bottomBar}>
+        <View style={styles.quantityContainer}>
           <TouchableOpacity
             style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
             onPress={decreaseQuantity}
             disabled={quantity <= 0 || !selectedSize}
           >
-            <Text style={styles.quantityButtonText}>-</Text>
+            <Text style={styles.quantityButtonText}>−</Text>
           </TouchableOpacity>
+          
           <Text style={styles.quantity}>{quantity}</Text>
-
+          
           <TouchableOpacity
             style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
             onPress={handleIncreaseQuantity}
@@ -218,20 +251,20 @@ const ProductDetails = () => {
           >
             <Text style={styles.quantityButtonText}>+</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.addToCartButton,
-              { opacity: (quantity === 0 || !selectedSize) ? 0.5 : 1 },
-            ]}
-            onPress={addToCart}
-            disabled={quantity === 0 || !selectedSize}
-          >
-            <Text style={styles.addToCartText}>Add to Cart</Text>
-          </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+
+        <TouchableOpacity
+          style={[
+            styles.addToCartButton,
+            { opacity: (quantity === 0 || !selectedSize) ? 0.5 : 1 },
+          ]}
+          onPress={addToCart}
+          disabled={quantity === 0 || !selectedSize}
+        >
+          <Text style={styles.addToCartText}>Add to Cart • {totalPrice} RSD</Text>
+        </TouchableOpacity>
+      </BlurView>
+    </View>
   );
 };
 
@@ -242,134 +275,164 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  imageContainer: {
+    height: width * 1.2,
+    width: '100%',
+    position: 'relative',
+  },
   heroImage: {
     width: '100%',
-    height: 250,
+    height: '100%',
     resizeMode: 'cover',
   },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+  },
+  detailsContainer: {
+    padding: 24,
+    paddingTop: 0,
+  },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginVertical: 8,
-  },
-  slug: {
-    fontSize: 18,
-    color: '#555',
-    marginBottom: 16,
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    fontSize: 32,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+    letterSpacing: -0.5,
   },
   price: {
-    fontWeight: 'bold',
-    color: '#000',
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#6366f1',
+    marginBottom: 24,
+  },
+  galleryContainer: {
+    marginBottom: 32,
+  },
+  thumbnailsContainer: {
+    gap: 12,
+  },
+  thumbnailImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
   },
   sizesContainer: {
-    marginBottom: 20,
+    marginBottom: 100,
   },
-  sizeTitle: {
+  sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 16,
   },
   sizeButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 12,
   },
   sizeButton: {
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#007bff',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
     alignItems: 'center',
-    minWidth: 60,
+    minWidth: 70,
   },
   selectedSizeButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#6366f1',
   },
   disabledSizeButton: {
-    borderColor: '#ccc',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f3f4f6',
+    opacity: 0.5,
   },
   sizeButtonText: {
-    color: '#007bff',
-    fontWeight: 'bold',
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '500',
   },
   selectedSizeText: {
     color: '#fff',
   },
   disabledSizeText: {
-    color: '#999',
+    color: '#9ca3af',
   },
   stockText: {
     fontSize: 12,
-    color: '#666',
-    marginTop: 2,
+    color: '#6b7280',
+    marginTop: 4,
   },
-  imagesContainer: {
-    marginBottom: 16,
-  },
-  image: {
-    width: 100,
-    height: 100,
-    marginRight: 8,
-    borderRadius: 8,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 16,
-  },
-  quantityButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#007bff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 8,
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  quantityButtonText: {
-    fontSize: 24,
+  selectedStockText: {
     color: '#fff',
   },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    paddingBottom: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    padding: 4,
+  },
+  quantityButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  disabledButton: {
+    backgroundColor: '#e5e7eb',
+  },
+  quantityButtonText: {
+    fontSize: 20,
+    color: '#111827',
+    fontWeight: '500',
+  },
   quantity: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginHorizontal: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    paddingHorizontal: 16,
+    color: '#111827',
   },
   addToCartButton: {
     flex: 1,
-    backgroundColor: '#28a745',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#6366f1',
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 8,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   addToCartText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  errorMessage: {
-    fontSize: 18,
-    color: '#f00',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    fontSize: 16,
+    fontWeight: '600',
   },
   errorContainer: {
     flex: 1,
@@ -379,7 +442,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: 'red',
+    color: '#ef4444',
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

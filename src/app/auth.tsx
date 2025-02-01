@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabase';
 import { Toast } from 'react-native-toast-notifications';
 import { useAuth } from '../providers/auth-provider';
 import { useEffect } from 'react';
+import React from 'react';
 
 const authSchema = zod.object({
   email: zod.string().email({ message: 'Invalid email address' }),

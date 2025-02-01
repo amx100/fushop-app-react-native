@@ -11,11 +11,10 @@ function TabBarIcon(props: {
 }) {
   return <FontAwesome size={24} {...props} style={{ color: '#1BC464' }} />;
 }
-
 const TabsLayout = () => {
-  const { session, mounting } = useAuth();
+  const { session, isLoading } = useAuth();
 
-  if (mounting) return <ActivityIndicator />;
+  if (isLoading) return <ActivityIndicator />;
   if (!session) return <Redirect href='/auth' />;
 
   return (

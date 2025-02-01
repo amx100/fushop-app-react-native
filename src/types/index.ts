@@ -23,6 +23,15 @@ export type Order = {
   user: string;
   description: string | null;
   slug: string;
+  user_email: { email: string };
+  items: {
+    quantity: number;
+    size: string;
+    product: {
+      title: string;
+      heroImage: string;
+    };
+  }[];
 };
 
 export type Category = {

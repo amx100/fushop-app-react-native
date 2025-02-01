@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Image,
 } from 'react-native';
 import { Link, Stack } from 'expo-router';
 import { format } from 'date-fns';
@@ -17,18 +18,46 @@ import { useAuth } from '../../../providers/auth-provider';
 type OrderStatus = 'Pending' | 'Completed' | 'Shipped' | 'InTransit';
 type OrderWithStatus = Tables<'order'> & { status: OrderStatus };
 
-const renderItem: ListRenderItem<OrderWithStatus> = ({ item }) => (
+type OrderWithDetails = OrderWithStatus & {
+  user_email: string;
+  items: {
+    product_title: string;
+    product_image: string;
+    quantity: number;
+    size: string;
+  }[];
+};
+
+const renderItem: ListRenderItem<OrderWithDetails> = ({ item }) => (
   <Link href={`/orders/${item.slug}`} asChild>
     <Pressable style={styles.orderContainer}>
       <View style={styles.orderContent}>
         <View style={styles.orderDetailsContainer}>
-          <Text style={styles.orderItem}>{item.slug}</Text>
+          <Text style={styles.orderItem}>Order #{item.slug}</Text>
+          <Text style={styles.orderEmail}>Customer: {item.user_email}</Text>
           <Text style={styles.orderDetails}>
             Total Price: ${item.totalPrice.toFixed(2)}
           </Text>
           <Text style={styles.orderDate}>
             {format(new Date(item.created_at), 'MMM dd, yyyy')}
           </Text>
+          
+          <View style={styles.itemsContainer}>
+            {item.items.map((orderItem, index) => (
+              <View key={index} style={styles.orderItemRow}>
+                <Image 
+                  source={{ uri: orderItem.product_image }} 
+                  style={styles.productImage}
+                />
+                <View style={styles.itemDetails}>
+                  <Text style={styles.productTitle}>{orderItem.product_title}</Text>
+                  <Text style={styles.itemInfo}>
+                    Size: {orderItem.size} • Qty: {orderItem.quantity}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
         <View style={[styles.statusBadge, styles[`statusBadge_${item.status}`]]}>
           <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
@@ -40,7 +69,7 @@ const renderItem: ListRenderItem<OrderWithStatus> = ({ item }) => (
 
 const Orders = () => {
   const { session } = useAuth();
-  const [orders, setOrders] = useState<OrderWithStatus[] | null>(null);
+  const [orders, setOrders] = useState<OrderWithDetails[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,7 +85,18 @@ const Orders = () => {
 
       let query = supabase
         .from('order')
-        .select('*')
+        .select(`
+          *,
+          user_email:users(email),
+          items:order_item(
+            quantity,
+            size,
+            product:product(
+              title,
+              heroImage
+            )
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (userType !== 'ADMIN') {
@@ -65,18 +105,24 @@ const Orders = () => {
 
       const { data, error: err } = await query;
 
-
       if (err) {
         console.error('Fetch orders error:', err);
         throw err;
       }
 
-      const ordersWithStatus: OrderWithStatus[] = data?.map((order) => ({
+      const ordersWithDetails: OrderWithDetails[] = data?.map((order) => ({
         ...order,
         status: (order.status || 'Pending') as OrderStatus,
+        user_email: order.user_email?.email,
+        items: order.items.map((item: any) => ({
+          product_title: item.product.title,
+          product_image: item.product.heroImage,
+          quantity: item.quantity,
+          size: item.size,
+        })),
       })) || [];
 
-      return ordersWithStatus;
+      return ordersWithDetails;
     } catch (err) {
       console.error('Fetch orders catch error:', err);
       setError(err as Error);
@@ -101,7 +147,6 @@ const Orders = () => {
   }, [fetchOrders]);
 
   useEffect(() => {
-
     fetchOrders().then((initialOrders) => {
       if (initialOrders) {
         setOrders(initialOrders);
@@ -110,29 +155,70 @@ const Orders = () => {
     });
 
     const channel = supabase.channel('orders-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order' }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order' }, async (payload) => {
+        // Helper function to fetch complete order details
+        const fetchOrderDetails = async (orderId: number) => {
+          const { data } = await supabase
+            .from('order')
+            .select(`
+              *,
+              user_email:users(email),
+              items:order_item(
+                quantity,
+                size,
+                product:product(
+                  title,
+                  heroImage
+                )
+              )
+            `)
+            .eq('id', orderId)
+            .single();
+
+          if (data) {
+            return {
+              ...data,
+              status: (data.status || 'Pending') as OrderStatus,
+              user_email: data.user_email?.email,
+              items: data.items.map((item: any) => ({
+                product_title: item.product.title,
+                product_image: item.product.heroImage,
+                quantity: item.quantity,
+                size: item.size,
+              })),
+            } as OrderWithDetails;
+          }
+          return null;
+        };
+
         if (payload.eventType === 'INSERT') {
-          setOrders((currentOrders) => currentOrders ? [
-            {
-              ...payload.new as Tables<'order'>,
-              status: (payload.new.status || 'Pending') as OrderStatus
-            },
-            ...currentOrders
-          ] : []);
+          const newOrder = await fetchOrderDetails(payload.new.id);
+          if (newOrder) {
+            setOrders((currentOrders) => 
+              currentOrders ? [newOrder, ...currentOrders] : [newOrder]
+            );
+          }
         } else if (payload.eventType === 'UPDATE') {
-          setOrders((currentOrders) => currentOrders ? currentOrders.map(order =>
-            order.id === payload.new.id
-              ? {
-                ...payload.new as Tables<'order'>,
-                status: (payload.new.status || 'Pending') as OrderStatus
-              }
-              : order
-          ) : []);
+          const updatedOrder = await fetchOrderDetails(payload.new.id);
+          if (updatedOrder) {
+            setOrders((currentOrders) => 
+              currentOrders 
+                ? currentOrders.map(order =>
+                    order.id === payload.new.id ? updatedOrder : order
+                  )
+                : []
+            );
+          }
         } else if (payload.eventType === 'DELETE') {
-          setOrders((currentOrders) => currentOrders ? currentOrders.filter(order => order.id !== payload.old.id) : []);
+          setOrders((currentOrders) => 
+            currentOrders 
+              ? currentOrders.filter(order => order.id !== payload.old.id)
+              : []
+          );
         }
       })
       .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
     };
@@ -206,6 +292,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  orderEmail: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
   orderDetails: {
     fontSize: 14,
     color: '#555',
@@ -237,5 +328,34 @@ const styles = StyleSheet.create({
   },
   statusBadge_InTransit: {
     backgroundColor: '#ff9800',
+  },
+  itemsContainer: {
+    marginTop: 8,
+  },
+  orderItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#fff',
+    borderRadius: 6,
+  },
+  productImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 4,
+    marginRight: 10,
+  },
+  itemDetails: {
+    flex: 1,
+  },
+  productTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  itemInfo: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
 });

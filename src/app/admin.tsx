@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
 import { ProductList } from '../components/admin/ProductList';
 import { OrderList } from '../components/admin/OrderList';
-import { ProductModal } from '../components/admin/ProductModal';
+import { ModernProductModal } from '../components/admin/ProductModal';
 import { CategoryModal } from '../components/admin/CategoryModal';
 import { useAuth } from '../providers/auth-provider';
 import { useRouter } from 'expo-router';
@@ -12,14 +12,11 @@ import { useAdminOrders } from '../hooks/useAdminOrders';
 import { useAdminCategories } from '../hooks/useAdminCategories';
 import { supabase } from '../lib/supabase';
 import { Toast } from 'react-native-toast-notifications';
-import { randomUUID } from 'expo-crypto';
-import { decode } from 'base64-arraybuffer';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import { CategoryList } from '../components/admin/CategoryList';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import SizeManagement from './admin/sizes';
+import SizeManagement from '../components/admin/SizeModal';
+
 
 const initialFormData: ProductFormData = {
   title: '',
@@ -56,7 +53,8 @@ export default function AdminDashboard() {
     handleCreateProduct,
     handleUpdateProduct,
     handleDeleteProduct,
-    pickImage: pickImageBase,
+    pickImage,
+    tempImageUrl,
   } = useAdminProducts();
 
   const {
@@ -84,90 +82,6 @@ export default function AdminDashboard() {
     setSelectedCategory(null);
   };
 
-  const uploadImage = async (uri: string) => {
-    if (!uri?.startsWith('file://')) {
-      return null;
-    }
-  
-    try {
-      const base64 = await FileSystem.readAsStringAsync(uri, { 
-        encoding: FileSystem.EncodingType.Base64 
-      });
-      const filePath = `${randomUUID()}.png`;
-      const contentType = 'image/png';
-  
-      const { data, error } = await supabase.storage
-        .from('app-images')
-        .upload(filePath, decode(base64), { contentType });
-  
-      if (error) throw error;
-  
-      if (data) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('app-images')
-          .getPublicUrl(data.path);
-        return publicUrl;
-      }
-    } catch (error) {
-      console.log('Error uploading image:', error);
-      return null;
-    }
-  };
-
-  const pickImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Camera roll permissions are required!');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-
-      if (!result.canceled) {
-        const uploadedUrl = await uploadImage(result.assets[0].uri);
-        if (uploadedUrl) {
-          setFormData(prev => ({ ...prev, heroImage: uploadedUrl }));
-          Toast.show('Image uploaded successfully', { type: 'success' });
-        }
-      }
-    } catch (error: any) {
-      alert('Error picking image: ' + error.message);
-    }
-  };
-
-  const pickCategoryImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Camera roll permissions are required!');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-
-      if (!result.canceled) {
-        const uploadedUrl = await uploadImage(result.assets[0].uri);
-        if (uploadedUrl) {
-          setCategoryFormData(prev => ({ ...prev, imageUrl: uploadedUrl }));
-          Toast.show('Image uploaded successfully', { type: 'success' });
-        }
-      }
-    } catch (error: any) {
-      alert('Error picking image: ' + error.message);
-    }
-  };
-
   const handleSignOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -182,19 +96,47 @@ export default function AdminDashboard() {
     }
   };
 
-  const openEditModal = (product: Product) => {
+  const handleCreateNew = () => {
+    setSelectedProduct(null);
+    setFormData(initialFormData);
+    setIsModalVisible(true);
+  };
+
+  const handleEdit = (product: Product) => {
     setSelectedProduct(product);
     setFormData({
       title: product.title,
       slug: product.slug,
-      imagesUrl: product.imagesUrl,
       price: product.price,
       heroImage: product.heroImage,
       category: product.category,
-      sizes: product.sizes as (ProductSize[] & { size: SizeType; quantity: number; }[]),
+      imagesUrl: product.imagesUrl || [],
+      sizes: product.sizes || []
     });
-    setPreviewImage(product.heroImage);
     setIsModalVisible(true);
+  };
+
+  const handleSubmit = async (data: ProductFormData) => {
+    try {
+      if (selectedProduct) {
+        await handleUpdateProduct(selectedProduct.id, data);
+      } else {
+        await handleCreateProduct(data);
+      }
+      setIsModalVisible(false);
+      setFormData(initialFormData);
+    } catch (error) {
+      console.error('Error submitting product:', error);
+    }
+  };
+
+  const handleModalClose = () => {
+    setIsModalVisible(false);
+    setFormData(initialFormData);
+  };
+
+  const handleFormChange = (changes: Partial<ProductFormData>) => {
+    setFormData(prev => ({ ...prev, ...changes }));
   };
 
   const filteredProducts = products?.filter(product => 
@@ -202,15 +144,24 @@ export default function AdminDashboard() {
     product.slug.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleProductSubmit = async (productData: ProductFormData) => {
-    if (selectedProduct) {
-      await handleUpdateProduct(selectedProduct.id, productData);
-    } else {
-      await handleCreateProduct(productData);
-    }
-    setIsModalVisible(false);
-    resetForm();
-  };
+  const filteredOrders = orders?.filter(order => {
+    if (!searchQuery) return true;
+    
+    const searchLower = searchQuery.toLowerCase();
+    
+    // Search by order slug/ID
+    const slugMatch = order.slug.toLowerCase().includes(searchLower);
+    
+    // Search by customer email
+    const emailMatch = order.user_email?.email.toLowerCase().includes(searchLower) || false;
+    
+    return slugMatch || emailMatch;
+  });
+
+  const filteredCategories = categories?.filter(category => 
+    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    category.slug.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <View style={styles.container}>
@@ -265,36 +216,48 @@ export default function AdminDashboard() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#666" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={`Search ${activeTab}...`}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
+      {(activeTab === 'products' || activeTab === 'orders') && (
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#666" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={
+              activeTab === 'orders' 
+                ? "Search orders by email or order ID..." 
+                : "Search products..."
+            }
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity 
+              onPress={() => setSearchQuery('')}
+              style={styles.clearButton}
+            >
+              <Ionicons name="close-circle" size={20} color="#666" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {activeTab === 'products' && (
-        <>
-          <ProductList
-            products={filteredProducts || []}
-            isLoading={productsLoading}
-            onEdit={openEditModal}
-            onDelete={handleDeleteProduct}
-            onCreateNew={() => {
-              resetForm();
-              setIsModalVisible(true);
-            }}
-          />
-        </>
+        <ProductList
+          products={filteredProducts || []}
+          isLoading={productsLoading}
+          onEdit={handleEdit}
+          onDelete={handleDeleteProduct}
+          onCreateNew={handleCreateNew}
+        />
       )}
 
       {activeTab === 'orders' && (
         <OrderList
-          orders={orders || []}
+          orders={filteredOrders ? filteredOrders.map(order => ({
+            ...order,
+            user_email: order.user_email?.email || 'Unknown'
+          })) : []}
           isLoading={ordersLoading}
-          onUpdateStatus={(orderId: number, status: OrderStatus) => updateOrderStatus(orderId, status)}
+          onUpdateStatus={updateOrderStatus}
         />
       )}
 
@@ -310,7 +273,7 @@ export default function AdminDashboard() {
             <Text style={styles.buttonText}>Create New Category</Text>
           </TouchableOpacity>
           <CategoryList
-            categories={categories || []}
+            categories={filteredCategories || []}
             isLoading={categoriesLoading}
             onEdit={(category) => {
               setSelectedCategory(category);
@@ -321,7 +284,7 @@ export default function AdminDashboard() {
               });
               setIsCategoryModalVisible(true);
             }}
-            onDelete={(id) => handleDeleteCategory(id)}
+            onDelete={handleDeleteCategory}
           />
         </View>
       )}
@@ -330,16 +293,13 @@ export default function AdminDashboard() {
         <SizeManagement />
       )}
 
-      <ProductModal
+      <ModernProductModal
         visible={isModalVisible}
         formData={formData}
         isEditing={!!selectedProduct}
-        onClose={() => {
-          setIsModalVisible(false);
-          resetForm();
-        }}
-        onSubmit={handleProductSubmit}
-        onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
+        onClose={handleModalClose}
+        onSubmit={handleSubmit}
+        onChange={handleFormChange}
         onPickImage={pickImage}
         categories={categories || []}
       />
@@ -362,7 +322,7 @@ export default function AdminDashboard() {
           resetCategoryForm();
         }}
         onChange={(data) => setCategoryFormData(prev => ({ ...prev, ...data }))}
-        onPickImage={pickCategoryImage}
+        onPickImage={pickImage}
       />
 
       {previewImage && (
@@ -483,5 +443,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 8,
     color: '#333',
+  },
+  clearButton: {
+    padding: 4,
   },
 });

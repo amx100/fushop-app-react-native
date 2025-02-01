@@ -41,7 +41,7 @@ export function ProductList({ products, isLoading, onEdit, onDelete, onCreateNew
               <View style={styles.productInfo}>
                 <Text style={styles.productTitle}>{product.title}</Text>
                 <Text style={styles.productPrice}>Price: ${product.price}</Text>
-                <Text style={styles.productQuantity}>Quantity: {product.maxQuantity}</Text>
+  
               </View>
             </View>
             <View style={styles.productActions}>
