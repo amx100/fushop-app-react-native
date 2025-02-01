@@ -35,17 +35,18 @@ const OrderDetails = () => {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: `${order.slug}` }} />
+      <Stack.Screen options={{ title: `#${order.id} ${order.slug}` }} />
 
-      <Text style={styles.item}>{order.slug}</Text>
-      <Text style={styles.details}>{order.description}</Text>
+  
+      {<Text style={styles.date}>
+        {format(new Date(order.created_at), 'MMM dd, yyyy')}
+      </Text>}
       <View style={[styles.statusBadge, styles[`statusBadge_${order.status}`]]}>
         <Text style={styles.statusText}>{order.status}</Text>
       </View>
-      <Text style={styles.date}>
-        {format(new Date(order.created_at), 'MMM dd, yyyy')}
-      </Text>
-      <Text style={styles.itemsTitle}>Items Ordered:</Text>
+      
+  
+      
       <FlatList
         data={orderItems}
         keyExtractor={(item) => item.id.toString()}
@@ -90,10 +91,14 @@ const styles: { [key: string]: any } = StyleSheet.create({
     marginBottom: 16,
   },
   statusBadge: {
-    padding: 8,
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderRadius: 4,
     alignSelf: 'flex-start',
-  },
+},
   statusBadge_Pending: {
     backgroundColor: 'orange',
   },

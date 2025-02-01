@@ -159,13 +159,13 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   statusBadge_Pending: {
-    backgroundColor: '#ffcc00',
+    backgroundColor: '#0A2463',
   },
   statusBadge_Completed: {
-    backgroundColor: '#4caf50',
+    backgroundColor: '#7EB77F',
   },
   statusBadge_Shipped: {
-    backgroundColor: '#2196f3',
+    backgroundColor: '#02C3BD',
   },
   statusBadge_InTransit: {
     backgroundColor: '#ff9800',
