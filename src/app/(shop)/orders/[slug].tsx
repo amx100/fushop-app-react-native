@@ -30,6 +30,7 @@ const OrderDetails = () => {
     heroImage: orderItem.products?.heroImage || '',
     price: orderItem.products?.price || 0,
     quantity: orderItem.quantity || 0,
+    size: orderItem.size || 'Unknown size',
   }));
 
   return (
@@ -58,6 +59,7 @@ const OrderDetails = () => {
             <View style={styles.itemInfo}>
               <Text style={styles.itemName}>{item.title}</Text>
               <Text style={styles.itemQuantity}>Quantity: {item.quantity}</Text>
+              <Text style={styles.itemSize}>Size: {item.size}</Text>
               <Text style={styles.itemPrice}>Price: ${item.price}</Text>
               <Text style={styles.itemTotal}>
                 Total: ${(item.price * item.quantity).toFixed(2)}
