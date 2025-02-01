@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Product, ProductFormData, SizeType } from '../types';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,7 +18,14 @@ export function useAdminProducts() {
       const { data: productsData, error: productsError } = await supabase
         .from('product')
         .select(`
-          *,
+          id,
+          title,
+          slug,
+          price,
+          heroImage,
+          category,
+          imagesUrl,
+          created_at,
           product_size:product_size(
             id,
             quantity,
@@ -38,6 +45,10 @@ export function useAdminProducts() {
         }))
       }));
     },
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const uploadImage = async (uri: string) => {
@@ -99,33 +110,27 @@ export function useAdminProducts() {
     return null;
   };
 
-  const handleCreateProduct = async (formData: ProductFormData) => {
-    try {
-      // First get all available sizes from the database
+  const createProductMutation = useMutation({
+    mutationFn: async (formData: ProductFormData) => {
       const { data: allSizes, error: sizesError } = await supabase
         .from('sizes')
         .select('*');
 
       if (sizesError) throw sizesError;
 
-      // Create a mapping of size values to their IDs
       const sizeValueToId = Object.fromEntries(
         allSizes?.map(size => [size.value, size.id]) || []
       );
 
-      // Map the form sizes to include correct size_ids
       const mappedSizes = formData.sizes?.map(size => ({
         ...size,
         size_id: sizeValueToId[size.size as keyof typeof sizeValueToId] || 0
       })) || [];
 
-      // Check if any sizes couldn't be mapped
-      const invalidSizes = mappedSizes.filter(size => size.size_id === 0);
-      if (invalidSizes.length > 0) {
-        throw new Error(`Some sizes are not valid: ${invalidSizes.map(s => s.size).join(', ')}`);
+      if (mappedSizes.some(size => size.size_id === 0)) {
+        throw new Error('Some sizes are not valid');
       }
 
-      // Create the product
       const { data: productData, error: productError } = await supabase
         .from('product')
         .insert({
@@ -141,7 +146,6 @@ export function useAdminProducts() {
 
       if (productError) throw productError;
 
-      // Create product sizes with correct size_ids
       if (mappedSizes.length > 0) {
         const sizesData = mappedSizes.map(size => ({
           product_id: productData.id,
@@ -156,42 +160,38 @@ export function useAdminProducts() {
         if (sizesInsertError) throw sizesInsertError;
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      return productData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       Toast.show('Product created successfully', { type: 'success' });
-    } catch (error) {
-      Toast.show('Error creating product: ' + (error as Error).message, { 
-        type: 'error' 
-      });
+    },
+    onError: (error: Error) => {
+      Toast.show('Error creating product: ' + error.message, { type: 'error' });
     }
-  };
+  });
 
-  const handleUpdateProduct = async (id: number, formData: ProductFormData) => {
-    try {
-      // First get all available sizes from the database
+  const updateProductMutation = useMutation({
+    mutationFn: async ({ id, formData }: { id: number; formData: ProductFormData }) => {
       const { data: allSizes, error: sizesError } = await supabase
         .from('sizes')
         .select('*');
 
       if (sizesError) throw sizesError;
 
-      // Create a mapping of size values to their IDs
       const sizeValueToId = Object.fromEntries(
         allSizes?.map(size => [size.value, size.id]) || []
       );
 
-      // Map the form sizes to include correct size_ids
       const mappedSizes = formData.sizes?.map(size => ({
         ...size,
         size_id: sizeValueToId[size.size as keyof typeof sizeValueToId] || 0
       })) || [];
 
-      // Check if any sizes couldn't be mapped
-      const invalidSizes = mappedSizes.filter(size => size.size_id === 0);
-      if (invalidSizes.length > 0) {
-        throw new Error(`Some sizes are not valid: ${invalidSizes.map(s => s.size).join(', ')}`);
+      if (mappedSizes.some(size => size.size_id === 0)) {
+        throw new Error('Some sizes are not valid');
       }
 
-      // Update the product details
       const { error: productError } = await supabase
         .from('product')
         .update({
@@ -207,19 +207,16 @@ export function useAdminProducts() {
       if (productError) throw productError;
 
       if (mappedSizes.length > 0) {
-        // Get existing sizes for this product
         const { data: existingSizes } = await supabase
           .from('product_size')
           .select('size_id')
           .eq('product_id', id);
 
-        // Create a set of size_ids that should be deleted
         const newSizeIds = new Set(mappedSizes.map(size => size.size_id));
         const sizesToDelete = existingSizes?.filter(
           size => !newSizeIds.has(size.size_id)
         ) || [];
 
-        // Delete sizes that are no longer present
         if (sizesToDelete.length > 0) {
           const { error: deleteError } = await supabase
             .from('product_size')
@@ -230,7 +227,6 @@ export function useAdminProducts() {
           if (deleteError) throw deleteError;
         }
 
-        // Process each size individually
         for (const size of mappedSizes) {
           const { error: sizeError } = await supabase
             .from('product_size')
@@ -246,27 +242,41 @@ export function useAdminProducts() {
         }
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      return { id, formData };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       Toast.show('Product updated successfully', { type: 'success' });
-    } catch (error) {
-      Toast.show('Error updating product: ' + (error as Error).message, { 
-        type: 'error' 
-      });
+    },
+    onError: (error: Error) => {
+      Toast.show('Error updating product: ' + error.message, { type: 'error' });
     }
+  });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.from('product').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      Toast.show('Product deleted successfully', { type: 'success' });
+    },
+    onError: (error: Error) => {
+      Toast.show('Error deleting product: ' + error.message, { type: 'error' });
+    }
+  });
+
+  const handleCreateProduct = async (formData: ProductFormData) => {
+    await createProductMutation.mutateAsync(formData);
+  };
+
+  const handleUpdateProduct = async (id: number, formData: ProductFormData) => {
+    await updateProductMutation.mutateAsync({ id, formData });
   };
 
   const handleDeleteProduct = async (id: number) => {
-    try {
-      const { error } = await supabase.from('product').delete().eq('id', id);
-      if (error) throw error;
-
-      await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-      Toast.show('Product deleted successfully', { type: 'success' });
-    } catch (error) {
-      Toast.show('Error deleting product: ' + (error as Error).message, { 
-        type: 'error' 
-      });
-    }
+    await deleteProductMutation.mutateAsync(id);
   };
 
   const decrementSizeQuantity = async (productId: number, size: SizeType, quantity: number) => {
