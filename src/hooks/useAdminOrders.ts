@@ -24,7 +24,9 @@ export function useAdminOrders() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchOrders = async () => {
+    setIsLoading(true);
     try {
+      console.log('Fetching orders...');
       const { data: ordersData, error } = await supabase
         .from('order')
         .select(`
@@ -42,8 +44,11 @@ export function useAdminOrders() {
         .order('created_at', { ascending: false });
 
       if (error) {
+        console.error('Supabase error:', error);
         throw error;
       }
+
+      console.log('Received orders data:', ordersData);
 
       if (ordersData) {
         const formattedOrders: Order[] = ordersData.map((order) => ({
@@ -55,17 +60,22 @@ export function useAdminOrders() {
           user_email: order.user_email,
           items: order.items.map((item: any) => ({
             product: {
-              title: item.product.title,
-              heroImage: item.product.heroImage,
+              title: item.product?.title || 'Unknown Product',
+              heroImage: item.product?.heroImage || '',
             },
             size: item.size,
             quantity: item.quantity,
           })),
         }));
+        console.log('Formatted orders:', formattedOrders);
         setOrders(formattedOrders);
+      } else {
+        console.log('No orders data received');
+        setOrders([]);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
+      setOrders([]);
     } finally {
       setIsLoading(false);
     }

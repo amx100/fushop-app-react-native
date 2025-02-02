@@ -6,7 +6,7 @@ import { CategoryModal } from '../components/admin/CategoryModal';
 import { useAuth } from '../providers/auth-provider';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Product, ProductFormData, Order, OrderStatus, Category, CategoryFormData, ProductSize, SizeType } from '../types';
+import { Product, ProductFormData, Order, OrderStatus, Category, CategoryFormData, ProductSize, SizeType } from '../types/index';
 import { useAdminProducts } from '../hooks/useAdminProducts';
 import { useAdminOrders } from '../hooks/useAdminOrders';
 import { useAdminCategories } from '../hooks/useAdminCategories';
@@ -22,7 +22,7 @@ const initialFormData: ProductFormData = {
   title: '',
   price: 0,
   heroImage: '',
-  category: 0,
+  category: '',
   slug: '',
   imagesUrl: [],
   sizes: [],

@@ -13,7 +13,7 @@ import {
   Platform,
   KeyboardAvoidingView
 } from 'react-native';
-import { ProductFormData, Category, SizeType } from '../../types';
+import { ProductFormData, Category, SizeType } from '../../types/index';
 import { Picker } from '@react-native-picker/picker';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
@@ -47,6 +47,20 @@ const useCategories = () => {
   });
 };
 
+const useSizes = () => {
+  return useQuery({
+    queryKey: ['sizes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sizes')
+        .select('*')
+        .order('id', { ascending: true });
+      if (error) throw error;
+      return data;
+    }
+  });
+};
+
 export function ModernProductModal({
   visible,
   formData,
@@ -63,6 +77,7 @@ export function ModernProductModal({
   const [newQuantity, setNewQuantity] = useState<string>('');
   const [sizeError, setSizeError] = useState<string>('');
   const { data: allCategories } = useCategories();
+  const { data: sizes, isLoading: sizesLoading } = useSizes();
 
   // Animation values
   const headerHeight = scrollY.interpolate({
@@ -212,8 +227,12 @@ export function ModernProductModal({
                   style={styles.sizePicker}
                 >
                   <Picker.Item label="Select size" value="" />
-                  {['S', 'M', 'L', 'XL', '2XL', '3XL'].map((size) => (
-                    <Picker.Item key={size} label={size} value={size} />
+                  {sizes?.map((size) => (
+                    <Picker.Item 
+                      key={size.id} 
+                      label={size.value} 
+                      value={size.value} 
+                    />
                   ))}
                 </Picker>
                 <TextInput
