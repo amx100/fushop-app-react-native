@@ -1,7 +1,23 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Image,
+  Pressable,
+  LayoutAnimation,
+  UIManager,
+  Platform
+} from 'react-native';
 import { format } from 'date-fns';
 import { OrderStatus } from '../../types';
+import { Toast } from 'react-native-toast-notifications';
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 type Order = {
   id: number;
@@ -29,6 +45,19 @@ type OrderListProps = {
 export function OrderList({ orders, isLoading, onUpdateStatus }: OrderListProps) {
   const statuses: OrderStatus[] = ['Pending', 'Completed', 'Shipped', 'InTransit'];
 
+  // Group statuses into rows (2 per row)
+  const statusRows: OrderStatus[][] = [];
+  for (let i = 0; i < statuses.length; i += 2) {
+    statusRows.push(statuses.slice(i, i + 2));
+  }
+
+  // Function to change status with animation
+  const handleStatusChange = (orderId: number, status: OrderStatus) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    onUpdateStatus(orderId, status);
+    Toast.show('Status changed', { type: 'success', duration: 2000 });
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -53,7 +82,10 @@ export function OrderList({ orders, isLoading, onUpdateStatus }: OrderListProps)
             <View style={styles.orderDetailsContainer}>
               <Text style={styles.orderItem}>Order #{order.slug}</Text>
               <Text style={styles.orderEmail}>
-                Customer: {typeof order.user_email === 'string' ? order.user_email : order.user_email?.email || 'No Email Available'}
+                Customer:{' '}
+                {typeof order.user_email === 'string'
+                  ? order.user_email
+                  : order.user_email?.email || 'No Email Available'}
               </Text>
               <Text style={styles.orderDetails}>
                 Total Price: ${order.totalPrice.toFixed(2)}
@@ -66,8 +98,8 @@ export function OrderList({ orders, isLoading, onUpdateStatus }: OrderListProps)
                 {order.items?.map((item, index) => (
                   <View key={index} style={styles.orderItemRow}>
                     <Image
-                      source={{ 
-                        uri: item.product?.heroImage || 'https://via.placeholder.com/50'
+                      source={{
+                        uri: item.product?.heroImage || 'https://via.placeholder.com/50',
                       }}
                       style={styles.productImage}
                     />
@@ -83,23 +115,31 @@ export function OrderList({ orders, isLoading, onUpdateStatus }: OrderListProps)
                 ))}
               </View>
 
-              <View style={styles.statusButtons}>
-                {statuses.map((status) => (
-                  <TouchableOpacity
-                    key={status}
-                    style={[
-                      styles.statusButton,
-                      styles[`statusBadge_${status}`],
-                      order.status === status && styles.statusButtonDisabled
-                    ]}
-                    disabled={order.status === status}
-                    onPress={() => onUpdateStatus(order.id, status)}
-                  >
-                    <Text style={styles.statusButtonText}>{status}</Text>
-                  </TouchableOpacity>
+              <View style={styles.statusButtonsContainer}>
+                {statusRows.map((row, rowIndex) => (
+                  <View key={rowIndex} style={styles.statusRow}>
+                    {row.map((status) => (
+                      <Pressable
+                        key={status}
+                        style={[
+                          styles.statusButton,
+                          // Apply status-specific color for the button
+                          styles[`statusButton_${status}`]
+                        ]}
+                        onPress={() => handleStatusChange(order.id, status)}
+                        android_ripple={{ color: 'transparent' }}
+                      >
+                        <Text style={styles.statusButtonText} numberOfLines={1}>
+                          {status.toUpperCase()}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    {row.length < 2 && <View style={styles.statusButton} />}
+                  </View>
                 ))}
               </View>
             </View>
+            {/* Use dynamic style lookup for the badge */}
             <View style={[styles.statusBadge, styles[`statusBadge_${order.status}`]]}>
               <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
             </View>
@@ -147,29 +187,6 @@ const styles = StyleSheet.create({
     color: '#888',
     marginTop: 4,
   },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  statusBadge_Pending: {
-    backgroundColor: '#0A2463',
-  },
-  statusBadge_Completed: {
-    backgroundColor: '#7EB77F',
-  },
-  statusBadge_Shipped: {
-    backgroundColor: '#02C3BD',
-  },
-  statusBadge_InTransit: {
-    backgroundColor: '#ff9800',
-  },
   itemsContainer: {
     marginTop: 12,
     marginBottom: 16,
@@ -185,10 +202,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 6,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
@@ -212,26 +226,68 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  statusButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  statusButtonsContainer: {
     marginTop: 8,
   },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   statusButton: {
+    width: '48%',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 4,
-    minWidth: 120,
     alignItems: 'center',
   },
-  statusButtonDisabled: {
-    opacity: 0.5,
-  },
   statusButtonText: {
-    color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+    textTransform: 'uppercase',
+    color: '#fff',
+  },
+  // Status-specific button styles
+  statusButton_Pending: {
+    backgroundColor: '#0A2463',
+  },
+  statusButton_Completed: {
+    backgroundColor: '#7EB77F',
+  },
+  statusButton_Shipped: {
+    backgroundColor: '#02C3BD',
+  },
+  statusButton_InTransit: {
+    backgroundColor: '#ff9800',
+  },
+  statusBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginLeft: 8,
+    width: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#fff', // Default text color (can be overridden if needed)
+  },
+  // Status-specific badge styles
+  statusBadge_Pending: {
+    backgroundColor: '#0A2463',
+  },
+  statusBadge_Completed: {
+    backgroundColor: '#7EB77F',
+  },
+  statusBadge_Shipped: {
+    backgroundColor: '#02C3BD',
+  },
+  statusBadge_InTransit: {
+    backgroundColor: '#ff9800',
   },
   messageText: {
     fontSize: 16,

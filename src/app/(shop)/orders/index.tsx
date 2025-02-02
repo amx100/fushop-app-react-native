@@ -14,6 +14,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { Tables } from '../../../types/database.types';
 import { useAuth } from '../../../providers/auth-provider';
+import { Ionicons } from '@expo/vector-icons';
 
 type OrderStatus = 'Pending' | 'Completed' | 'Shipped' | 'InTransit';
 type OrderWithStatus = Tables<'order'> & { status: OrderStatus };
@@ -42,6 +43,7 @@ const renderItem: ListRenderItem<OrderWithDetails> = ({ item }) => (
           {format(new Date(item.created_at), 'MMM dd, yyyy')}
         </Text>
       </View>
+      <Ionicons name="chevron-forward" size={24} color="#888" />
     </View>
     <View style={[styles.statusBadge, styles[`statusBadge_${item.status}`]]}>
       <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>

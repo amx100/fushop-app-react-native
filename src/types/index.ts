@@ -34,6 +34,15 @@ export type Order = {
   }[];
 };
 
+export type OrderItem = {
+  product: {
+    title: string;
+    heroImage: string;
+  };
+  size: string;
+  quantity: number;
+};
+
 export type Category = {
   id: number;
   name: string;
@@ -45,6 +54,13 @@ export type Category = {
 export type CategoryFormData = Omit<Category, 'id' | 'products'>;
 
 export type SizeType = 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
+
+interface Size {
+  id: string;
+  name: string;
+  quantity: number;
+}
+
 
 export type ProductSize = {
   id: number;
@@ -71,10 +87,5 @@ export interface Cart {
   items: CartItem[];
 }
 
-interface Size {
-  id: string;
-  name: string;
-  quantity: number;
-}
 
 
