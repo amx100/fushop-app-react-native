@@ -99,18 +99,18 @@ const styles: { [key: string]: any } = StyleSheet.create({
     borderRadius: 4,
     alignSelf: 'flex-start',
 },
-  statusBadge_Pending: {
-    backgroundColor: 'orange',
-  },
-  statusBadge_Completed: {
-    backgroundColor: 'green',
-  },
-  statusBadge_Shipped: {
-    backgroundColor: 'blue',
-  },
-  statusBadge_InTransit: {
-    backgroundColor: 'purple',
-  },
+statusBadge_Pending: {
+  backgroundColor: '#0A2463',
+},
+statusBadge_Completed: {
+  backgroundColor: '#7EB77F',
+},
+statusBadge_Shipped: {
+  backgroundColor: '#02C3BD',
+},
+statusBadge_InTransit: {
+  backgroundColor: '#ff9800',
+},
   statusText: {
     color: '#fff',
     fontWeight: 'bold',

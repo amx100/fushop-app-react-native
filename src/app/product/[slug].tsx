@@ -1,4 +1,4 @@
-import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -9,15 +9,15 @@ import {
   View,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
+import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
 import { useToast } from 'react-native-toast-notifications';
-import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
 import { useCartStore } from '../../store/cart-store';
 import { getProduct } from '../../api/api';
-import { ActivityIndicator } from 'react-native';
 import { Product, ProductSize, SizeType } from '../../types';
 
 const { width, height } = Dimensions.get('window');
@@ -25,13 +25,175 @@ const { width, height } = Dimensions.get('window');
 const ProductDetails = () => {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const toast = useToast();
-
   const { data: product, error, isLoading } = getProduct(slug);
-  const { items, addItem, incrementItem, decrementItem } = useCartStore();
-  const cartItem = items.find(item => item.id === product?.id);
-  const initialQuantity = cartItem ? cartItem.quantity : 0;
+  const { items, addItem, decrementItem } = useCartStore();
+
+  // Local state for selected size and the new quantity the user intends to add.
   const [selectedSize, setSelectedSize] = useState<SizeType | ''>('');
-  const [quantity, setQuantity] = useState(initialQuantity);
+  const [quantity, setQuantity] = useState<number>(0);
+
+  // This memo returns the maximum quantity available for a given size.
+  const getMaxQuantityForSize = useCallback(
+    (size: string) => {
+      if (!product) return 0;
+      const sizeData = product.sizes?.find((s: ProductSize) => s.size === size);
+      return sizeData?.quantity || 0;
+    },
+    [product]
+  );
+
+  // Derive the current cart quantity for the current product & selected size.
+  // (Recalculate whenever the cart items, product, or selectedSize change.)
+  const existingCartQuantity = useMemo(() => {
+    if (!product || !selectedSize) return 0;
+    const found = items.find(
+      item => item.id === product.id && item.size === selectedSize
+    );
+    return found ? found.quantity : 0;
+  }, [items, product, selectedSize]);
+
+  // Total price for the new quantity the user wants to add.
+  const totalPrice = useMemo(() => {
+    return product ? (product.price * quantity).toFixed(2) : '0.00';
+  }, [product, quantity]);
+
+  // Increase quantity callback
+  const handleIncreaseQuantity = useCallback(() => {
+    if (!selectedSize) {
+      toast.show('Please select a size first', {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+    const maxQuantity = getMaxQuantityForSize(selectedSize);
+    // Check if the new quantity plus what's already in the cart is at or exceeds the max.
+    if (existingCartQuantity + quantity >= maxQuantity) {
+      toast.show(
+        `Dodali ste sve dostupne veličine ovog proizvoda [${selectedSize}]`,
+        {
+          type: 'warning',
+          placement: 'top',
+          duration: 1500,
+        }
+      );
+      return;
+    }
+    setQuantity(prev => prev + 1);
+  }, [selectedSize, quantity, getMaxQuantityForSize, toast, existingCartQuantity]);
+
+  // Decrease quantity callback
+  const handleDecreaseQuantity = useCallback(() => {
+    if (!selectedSize) {
+      toast.show('Please select a size first', {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+    if (quantity > 0) {
+      setQuantity(prev => prev - 1);
+      if (product) {
+        decrementItem(product.id, selectedSize);
+      }
+    }
+  }, [selectedSize, quantity, product, decrementItem, toast]);
+
+  // Add to Cart callback with enhanced validation.
+  const handleAddToCart = useCallback(() => {
+    if (!selectedSize) {
+      toast.show('Please select a size', {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+    if (!product) return;
+
+    const sizeData = product.sizes?.find((s: ProductSize) => s.size === selectedSize);
+    if (!sizeData) {
+      toast.show('Selected size not found', {
+        type: 'error',
+        placement: 'top',
+        duration: 1500,
+      });
+      return;
+    }
+
+    const maxQuantity = getMaxQuantityForSize(selectedSize);
+
+    // First, if the cart already has the maximum available, warn and exit.
+    if (existingCartQuantity >= maxQuantity) {
+      toast.show(
+        `You already have the maximum (${maxQuantity}) items in size ${selectedSize} in your cart.`,
+        {
+          type: 'warning',
+          placement: 'top',
+          duration: 1500,
+        }
+      );
+      return;
+    }
+
+    // Next, if the new quantity would cause an overflow, warn the user.
+    if (existingCartQuantity + quantity > maxQuantity) {
+      toast.show(
+        `You can only add ${maxQuantity - existingCartQuantity} more item(s) in size ${selectedSize}.`,
+        {
+          type: 'warning',
+          placement: 'top',
+          duration: 1500,
+        }
+      );
+      return;
+    }
+
+    // If all validations pass, add the item to the cart.
+    addItem({
+      id: product.id,
+      title: product.title,
+      heroImage: product.heroImage,
+      name: product.title,
+      price: product.price,
+      quantity,
+      size: selectedSize,
+      size_id: sizeData.size_id,
+      maxQuantity,
+    });
+    toast.show('Added to cart', {
+      type: 'success',
+      placement: 'top',
+      duration: 1500,
+    });
+
+    // Reset the local quantity after a successful add.
+    setQuantity(0);
+  }, [
+    selectedSize,
+    product,
+    quantity,
+    getMaxQuantityForSize,
+    addItem,
+    toast,
+    existingCartQuantity,
+  ]);
+
+  // Memoize the thumbnail renderItem to prevent unnecessary re-renders.
+  const renderThumbnail = useCallback(
+    ({ item, index }: { item: string; index: number }) => {
+      return (
+        <Image
+          source={{ uri: item }}
+          style={styles.thumbnailImage}
+          key={`${product?.id}-image-${index}`}
+        />
+      );
+    },
+    [product]
+  );
 
   if (isLoading) {
     return (
@@ -50,102 +212,6 @@ const ProductDetails = () => {
       </View>
     );
   }
-
-  const getMaxQuantityForSize = (size: string) => {
-    const typedProduct = product as Product;
-    const sizeData = typedProduct.sizes?.find(s => s.size === size);
-    return sizeData?.quantity || 0;
-  };
-
-  const handleIncreaseQuantity = () => {
-    if (!selectedSize) {
-      toast.show('Please select a size first', {
-        type: 'warning',
-        placement: 'top',
-        duration: 1500,
-      });
-      return;
-    }
-
-    const maxQuantity = getMaxQuantityForSize(selectedSize);
-    if (quantity >= maxQuantity) {
-      toast.show(`Only ${maxQuantity} items available in size ${selectedSize}`, {
-        type: 'warning',
-        placement: 'top',
-        duration: 1500,
-      });
-      return;
-    }
-
-    setQuantity(prev => prev + 1);
-  };
-
-  const decreaseQuantity = () => {
-    if (quantity > 0 && selectedSize) {
-      setQuantity(prev => prev - 1);
-      decrementItem(product.id, selectedSize);
-    } else if (!selectedSize) {
-      toast.show('Please select a size first', {
-        type: 'warning',
-        placement: 'top',
-        duration: 1500,
-      });
-    }
-  };
-
-  const addToCart = () => {
-    if (!selectedSize) {
-      toast.show('Please select a size', {
-        type: 'warning',
-        placement: 'top',
-        duration: 1500,
-      });
-      return;
-    }
-
-    const sizeData = product.sizes?.find((s: { size: string }) => s.size === selectedSize);
-    if (!sizeData) {
-      toast.show('Selected size not found', {
-        type: 'error',
-        placement: 'top',
-        duration: 1500,
-      });
-      return;
-    }
-
-    const maxQuantity = getMaxQuantityForSize(selectedSize);
-    if (quantity > maxQuantity) {
-      toast.show(
-        `Cannot add ${quantity} items. Only ${maxQuantity} available in size ${selectedSize}`,
-        {
-          type: 'warning',
-          placement: 'top',
-          duration: 1500,
-        }
-      );
-      return;
-    }
-
-    addItem({
-      id: product.id,
-      title: product.title,
-      heroImage: product.heroImage,
-      name: product.title,
-      price: product.price,
-      quantity,
-      size: selectedSize,
-      size_id: sizeData.size_id,
-      maxQuantity: maxQuantity,
-    });
-
-    toast.show('Added to cart', {
-      type: 'success',
-      placement: 'top',
-      duration: 1500,
-    });
-  };
-
-  const totalPrice = (product.price * quantity).toFixed(2);
 
   return (
     <View style={styles.container}>
@@ -188,9 +254,7 @@ const ProductDetails = () => {
             <FlatList
               data={product.imagesUrl}
               keyExtractor={(item, index) => `${product.id}-image-${index}`}
-              renderItem={({ item }) => (
-                <Image source={{ uri: item }} style={styles.thumbnailImage} />
-              )}
+              renderItem={renderThumbnail}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.thumbnailsContainer}
@@ -211,6 +275,7 @@ const ProductDetails = () => {
                   onPress={() => {
                     if (sizeData.quantity > 0) {
                       setSelectedSize(sizeData.size as SizeType);
+                      // Reset the local quantity when switching sizes.
                       setQuantity(0);
                     }
                   }}
@@ -225,15 +290,15 @@ const ProductDetails = () => {
                   >
                     {sizeData.size}
                   </Text>
-                  <Text
+              {/*     <Text
                     style={[
                       styles.stockText,
                       selectedSize === sizeData.size && styles.selectedStockText,
                       sizeData.quantity === 0 && styles.disabledSizeText,
                     ]}
                   >
-                    {sizeData.quantity} na lageru
-                  </Text>
+                     {sizeData.quantity} na lageru 
+                  </Text> */}
                 </TouchableOpacity>
               ))}
             </View>
@@ -245,7 +310,7 @@ const ProductDetails = () => {
         <View style={styles.quantityContainer}>
           <TouchableOpacity
             style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
-            onPress={decreaseQuantity}
+            onPress={handleDecreaseQuantity}
             disabled={quantity <= 0 || !selectedSize}
           >
             <Text style={styles.quantityButtonText}>−</Text>
@@ -267,7 +332,7 @@ const ProductDetails = () => {
             styles.addToCartButton,
             { opacity: quantity === 0 || !selectedSize ? 0.5 : 1 },
           ]}
-          onPress={addToCart}
+          onPress={handleAddToCart}
           disabled={quantity === 0 || !selectedSize}
         >
           <Text style={styles.addToCartText}>Add to Cart • {totalPrice} RSD</Text>
@@ -277,22 +342,20 @@ const ProductDetails = () => {
   );
 };
 
-export default ProductDetails;
+export default React.memo(ProductDetails);
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
   },
-  /* Full hero image taking the full width */
   heroContainer: {
     width: '100%',
-    height: height * 0.5, // Adjust this value to control how much screen the image takes
+    height: height * 0.5,
   },
   gradientOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
-  /* Details card that overlaps the hero image */
   detailsCard: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
@@ -347,12 +410,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sizeButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 15,
+    paddingHorizontal: 22,
+    borderRadius: 18,
     backgroundColor: '#f3f4f6',
     alignItems: 'center',
-    minWidth: 70,
+  
   },
   selectedSizeButton: {
     backgroundColor: '#cc783f',
@@ -363,7 +426,7 @@ const styles = StyleSheet.create({
   },
   sizeButtonText: {
     color: '#663c20',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '500',
   },
   selectedSizeText: {
@@ -375,7 +438,7 @@ const styles = StyleSheet.create({
   stockText: {
     fontSize: 12,
     color: '#6b7280',
-    marginTop: 4,
+    //marginTop: 4,
   },
   selectedStockText: {
     color: '#fff',
