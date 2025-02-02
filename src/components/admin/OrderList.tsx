@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   Image,
   Pressable,
   LayoutAnimation,
   UIManager,
-  Platform
+  Platform,
+  FlatList,
 } from 'react-native';
 import { format } from 'date-fns';
 import { OrderStatus } from '../../types';
@@ -42,21 +42,107 @@ type OrderListProps = {
   onUpdateStatus: (orderId: number, status: OrderStatus) => void;
 };
 
-export function OrderList({ orders, isLoading, onUpdateStatus }: OrderListProps) {
-  const statuses: OrderStatus[] = ['Pending', 'Completed', 'Shipped', 'InTransit'];
+// Define the static statuses outside of component render (or memoize them)
+const STATUSES: OrderStatus[] = ['Pending', 'Completed', 'Shipped', 'InTransit'];
 
-  // Group statuses into rows (2 per row)
-  const statusRows: OrderStatus[][] = [];
-  for (let i = 0; i < statuses.length; i += 2) {
-    statusRows.push(statuses.slice(i, i + 2));
+const getStatusRows = () => {
+  const rows: OrderStatus[][] = [];
+  for (let i = 0; i < STATUSES.length; i += 2) {
+    rows.push(STATUSES.slice(i, i + 2));
   }
+  return rows;
+};
 
-  // Function to change status with animation
-  const handleStatusChange = (orderId: number, status: OrderStatus) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    onUpdateStatus(orderId, status);
-    Toast.show('Status changed', { type: 'success', duration: 2000 });
-  };
+type OrderItemProps = {
+  order: Order;
+  statusRows: OrderStatus[][];
+  onUpdateStatus: (orderId: number, status: OrderStatus) => void;
+};
+
+const OrderItem = React.memo(({ order, statusRows, onUpdateStatus }: OrderItemProps) => {
+  // Memoize the callback to avoid re-rendering child components unnecessarily
+  const handleStatusChange = useCallback(
+    (status: OrderStatus) => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      onUpdateStatus(order.id, status);
+      Toast.show('Status changed', { type: 'success', duration: 2000 });
+    },
+    [order.id, onUpdateStatus]
+  );
+
+  return (
+    <View style={styles.orderContainer}>
+      <View style={styles.orderContent}>
+        <View style={styles.orderDetailsContainer}>
+          <Text style={styles.orderItem}>Order #{order.slug}</Text>
+          <Text style={styles.orderEmail}>
+            Customer:{' '}
+            {typeof order.user_email === 'string'
+              ? order.user_email
+              : order.user_email?.email || 'No Email Available'}
+          </Text>
+          <Text style={styles.orderDetails}>
+            Total Price: ${order.totalPrice.toFixed(2)}
+          </Text>
+          <Text style={styles.orderDate}>
+            {format(new Date(order.created_at), 'MMM dd, yyyy')}
+          </Text>
+
+          <View style={styles.itemsContainer}>
+            {order.items?.map((item, idx) => (
+              <View key={idx} style={styles.orderItemRow}>
+                <Image
+                  source={{
+                    uri: item.product?.heroImage || 'https://via.placeholder.com/50',
+                  }}
+                  style={styles.productImage}
+                />
+                <View style={styles.itemDetails}>
+                  <Text style={styles.productTitle}>
+                    {item.product?.title || 'Product Name Not Available'}
+                  </Text>
+                  <Text style={styles.itemInfo}>
+                    Size: {item.size || 'N/A'} • Qty: {item.quantity || 0}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.statusContainer}>
+            {statusRows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.statusRow}>
+                {row.map((status) => (
+                  <Pressable
+                    key={status}
+                    style={[
+                      styles.statusBadge,
+                      styles[`statusBadge_${status}` ],
+                    ]}
+                    onPress={() => handleStatusChange(status)}
+                    android_ripple={{ color: 'transparent' }}
+                  >
+                    <Text style={styles.statusBadgeText} numberOfLines={1}>
+                      {status.toUpperCase()}
+                    </Text>
+                  </Pressable>
+                ))}
+                {row.length < 2 && <View style={styles.statusBadge} />}
+              </View>
+            ))}
+          </View>
+        </View>
+        <View style={[styles.statusBadge, styles[`statusBadge_${order.status}` ]]}>
+          <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
+        </View>
+      </View>
+    </View>
+  );
+});
+
+export function OrderList({ orders, isLoading, onUpdateStatus }: OrderListProps) {
+  // Memoize the statusRows since STATUSES are static
+  const statusRows = useMemo(() => getStatusRows(), []);
 
   if (isLoading) {
     return (
@@ -74,86 +160,24 @@ export function OrderList({ orders, isLoading, onUpdateStatus }: OrderListProps)
     );
   }
 
+  // Use FlatList for better performance on large lists
   return (
-    <ScrollView style={styles.container}>
-      {orders.map((order) => (
-        <View key={order.id} style={styles.orderContainer}>
-          <View style={styles.orderContent}>
-            <View style={styles.orderDetailsContainer}>
-              <Text style={styles.orderItem}>Order #{order.slug}</Text>
-              <Text style={styles.orderEmail}>
-                Customer:{' '}
-                {typeof order.user_email === 'string'
-                  ? order.user_email
-                  : order.user_email?.email || 'No Email Available'}
-              </Text>
-              <Text style={styles.orderDetails}>
-                Total Price: ${order.totalPrice.toFixed(2)}
-              </Text>
-              <Text style={styles.orderDate}>
-                {format(new Date(order.created_at), 'MMM dd, yyyy')}
-              </Text>
-
-              <View style={styles.itemsContainer}>
-                {order.items?.map((item, index) => (
-                  <View key={index} style={styles.orderItemRow}>
-                    <Image
-                      source={{
-                        uri: item.product?.heroImage || 'https://via.placeholder.com/50',
-                      }}
-                      style={styles.productImage}
-                    />
-                    <View style={styles.itemDetails}>
-                      <Text style={styles.productTitle}>
-                        {item.product?.title || 'Product Name Not Available'}
-                      </Text>
-                      <Text style={styles.itemInfo}>
-                        Size: {item.size || 'N/A'} • Qty: {item.quantity || 0}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.statusButtonsContainer}>
-                {statusRows.map((row, rowIndex) => (
-                  <View key={rowIndex} style={styles.statusRow}>
-                    {row.map((status) => (
-                      <Pressable
-                        key={status}
-                        style={[
-                          styles.statusButton,
-                          // Apply status-specific color for the button
-                          styles[`statusButton_${status}`]
-                        ]}
-                        onPress={() => handleStatusChange(order.id, status)}
-                        android_ripple={{ color: 'transparent' }}
-                      >
-                        <Text style={styles.statusButtonText} numberOfLines={1}>
-                          {status.toUpperCase()}
-                        </Text>
-                      </Pressable>
-                    ))}
-                    {row.length < 2 && <View style={styles.statusButton} />}
-                  </View>
-                ))}
-              </View>
-            </View>
-            {/* Use dynamic style lookup for the badge */}
-            <View style={[styles.statusBadge, styles[`statusBadge_${order.status}`]]}>
-              <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
-            </View>
-          </View>
-        </View>
-      ))}
-    </ScrollView>
+    <FlatList
+      data={orders}
+      keyExtractor={(order) => order.id.toString()}
+      contentContainerStyle={styles.container}
+      renderItem={({ item }) => (
+        <OrderItem order={item} statusRows={statusRows} onUpdateStatus={onUpdateStatus} />
+      )}
+    />
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     padding: 16,
+    backgroundColor: '#fff',
   },
   orderContainer: {
     backgroundColor: '#f8f8f8',
@@ -226,39 +250,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  statusButtonsContainer: {
+  statusContainer: {
     marginTop: 8,
+    width:'auto'
   },
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
-  },
-  statusButton: {
-    width: '48%',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  statusButtonText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    color: '#fff',
-  },
-  // Status-specific button styles
-  statusButton_Pending: {
-    backgroundColor: '#0A2463',
-  },
-  statusButton_Completed: {
-    backgroundColor: '#7EB77F',
-  },
-  statusButton_Shipped: {
-    backgroundColor: '#02C3BD',
-  },
-  statusButton_InTransit: {
-    backgroundColor: '#ff9800',
   },
   statusBadge: {
     paddingVertical: 4,
@@ -270,13 +269,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statusText: {
+  statusBadgeText: {
     fontSize: 12,
     fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#fff', // Default text color (can be overridden if needed)
+    textTransform: 'uppercase',
+    color: '#fff',
   },
-  // Status-specific badge styles
+
   statusBadge_Pending: {
     backgroundColor: '#0A2463',
   },
@@ -289,6 +288,16 @@ const styles = StyleSheet.create({
   statusBadge_InTransit: {
     backgroundColor: '#ff9800',
   },
+  statusBadge_Cancelled: {
+    backgroundColor: '#ff9800',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#fff',
+  },
+
   messageText: {
     fontSize: 16,
     textAlign: 'center',
