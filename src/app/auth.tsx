@@ -1,32 +1,35 @@
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ImageBackground,
   TextInput,
   TouchableOpacity,
+  Platform,
+  StatusBar,
+  Alert,
+  Dimensions,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useForm, Controller } from 'react-hook-form';
 import * as zod from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Redirect, Stack, useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { Toast } from 'react-native-toast-notifications';
-import { useAuth } from '../providers/auth-provider';
-import { useEffect } from 'react';
-import React from 'react';
+import { router } from 'expo-router';
 
+// Get screen dimensions
+const { width, height } = Dimensions.get('window');
+
+// Authentication Schema
 const authSchema = zod.object({
-  email: zod.string().email({ message: 'Invalid email address' }),
-  password: zod
-    .string()
-    .min(6, { message: 'Password must be at least 6 characters long' }),
+  email: zod.string().email('Invalid email address'),
+  password: zod.string().min(6, 'Password must be at least 6 characters'),
 });
 
-export default function Auth() {
-  const { session } = useAuth();
-  const router = useRouter();
-  const { control, handleSubmit, formState } = useForm({
+export default function MorphismAuthScreen() {
+  const [isLogin, setIsLogin] = useState(true);
+  const { control, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(authSchema),
     defaultValues: {
       email: '',
@@ -34,233 +37,225 @@ export default function Auth() {
     },
   });
 
-  const signIn = async (data: zod.infer<typeof authSchema>) => {
-    const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword(data);
+  const onSubmit = async (data: any) => {
+    try {
+      if (isLogin) {
+        // Handle login
+        const { data: authData, error } = await supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        });
 
-    if (signInError) {
-      alert(signInError.message);
-      return;
+        if (error) throw error;
+
+        if (authData.session) {
+          // Successful login - redirect to shop
+          router.replace('/(shop)');
+        }
+
+      } else {
+        // Handle sign up
+        const { error } = await supabase.auth.signUp({
+          email: data.email,
+          password: data.password,
+        });
+
+        if (error) throw error;
+
+        Alert.alert(
+          "Success!",
+          "Account created successfully! Please check your email for verification and sign in.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                setIsLogin(true); // Switch to login mode
+              }
+            }
+          ]
+        );
+      }
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        error.message || "An error occurred during authentication",
+        [{ text: "OK" }]
+      );
     }
-
-    // Check user type but always redirect to shop
-    const { data: userData } = await supabase
-      .from('users')
-      .select('type')
-      .eq('id', signInData.user.id)
-      .single();
-
-    Toast.show('Signed in successfully', {
-      type: 'success',
-      placement: 'top',
-      duration: 1500,
-    });
-    
-    router.replace('/'); // Always go to shop for regular sign in
   };
-
-  const signUp = async (data: zod.infer<typeof authSchema>) => {
-    const { error } = await supabase.auth.signUp(data);
-
-    if (error) {
-      alert(error.message);
-    } else {
-      Toast.show('Signed up successfully', {
-        type: 'success',
-        placement: 'top',
-        duration: 1500,
-      });
-    }
-  };
-
-  const signInAsAdmin = async (data: zod.infer<typeof authSchema>) => {
-    const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword(data);
-
-    if (signInError) {
-      alert(signInError.message);
-      return;
-    }
-
-    // Check if user is admin
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('type')
-      .eq('id', signInData.user.id)
-      .single();
-
-    if (userError || userData?.type !== 'ADMIN') {
-      alert('Unauthorized: Admin access only');
-      await supabase.auth.signOut();
-      return;
-    }
-
-    Toast.show('Signed in as admin successfully', {
-      type: 'success',
-      placement: 'top',
-      duration: 1500,
-    });
-    
-    router.replace('/admin'); // Always go to admin page for admin sign in
-  };
-
-  if (session) {
-    return null;
-  }
 
   return (
-    <ImageBackground
-      source={{
-        uri: 'https://images.pexels.com/photos/682933/pexels-photo-682933.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-      }}
-      style={styles.backgroundImage}
-    >
-      <View style={styles.overlay} />
-
-      <View style={styles.container}>
-        <Text style={styles.title}>Welcome</Text>
-        <Text style={styles.subtitle}>Please Authenticate to continue</Text>
-
-        <Controller
-          control={control}
-          name='email'
-          render={({
-            field: { value, onChange, onBlur },
-            fieldState: { error },
-          }) => (
-            <>
-              <TextInput
-                placeholder='Email'
-                style={styles.input}
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                placeholderTextColor='#aaa'
-                autoCapitalize='none'
-                editable={!formState.isSubmitting}
-              />
-              {error && <Text style={styles.error}>{error.message}</Text>}
-            </>
-          )}
-        />
-
-        <Controller
-          control={control}
-          name='password'
-          render={({
-            field: { value, onChange, onBlur },
-            fieldState: { error },
-          }) => (
-            <>
-              <TextInput
-                placeholder='Password'
-                style={styles.input}
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                secureTextEntry
-                placeholderTextColor='#aaa'
-                autoCapitalize='none'
-                editable={!formState.isSubmitting}
-              />
-              {error && <Text style={styles.error}>{error.message}</Text>}
-            </>
-          )}
-        />
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleSubmit(signIn)}
-          disabled={formState.isSubmitting}
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Gradient Background */}
+      <LinearGradient
+        colors={["#CE590A", "#F4C66F"]}
+        style={styles.background}
+      >
+        {/* Blur Morphism Container */}
+        <BlurView 
+          intensity={40}  // Reduced intensity for more visibility
+          style={styles.blurContainer}
+          tint="dark"  // Added dark tint for more depth
         >
-          <Text style={styles.buttonText}>Sign In</Text>
-        </TouchableOpacity>
+          <View style={styles.authContainer}>
+            <Text style={styles.title}>
+              {isLogin ? 'Dobrodošli' : 'Kreirajte nalog'}
+            </Text>
 
-        <TouchableOpacity
-          style={[styles.button, styles.adminButton]}
-          onPress={handleSubmit(signInAsAdmin)}
-          disabled={formState.isSubmitting}
-        >
-          <Text style={styles.buttonText}>Sign In as Admin</Text>
-        </TouchableOpacity>
+            {/* Email Input */}
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, value } }) => (
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    placeholder="Email Address"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    style={styles.input}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                  {errors.email && (
+                    <Text style={styles.errorText}>
+                      {errors.email.message}
+                    </Text>
+                  )}
+                </View>
+              )}
+            />
 
-        <TouchableOpacity
-          style={[styles.button, styles.signUpButton]}
-          onPress={handleSubmit(signUp)}
-          disabled={formState.isSubmitting}
-        >
-          <Text style={styles.buttonText}>Sign Up</Text>
-        </TouchableOpacity>
-      </View>
-    </ImageBackground>
+            {/* Password Input */}
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, value } }) => (
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    placeholder="Password"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    style={styles.input}
+                    secureTextEntry
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                  {errors.password && (
+                    <Text style={styles.errorText}>
+                      {errors.password.message}
+                    </Text>
+                  )}
+                </View>
+              )}
+            />
+
+            {/* Action Buttons */}
+            <TouchableOpacity 
+              style={styles.primaryButton}
+              onPress={handleSubmit(onSubmit)}
+            >
+              <Text style={styles.buttonText}>
+                {isLogin ? 'Prijavite se' : 'Kreirajte nalog'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Toggle Between Login/Signup */}
+            <TouchableOpacity 
+              onPress={() => setIsLogin(!isLogin)}
+              style={styles.toggleButton}
+            >
+              <Text style={styles.toggleText}>
+                {isLogin 
+                  ? "Nemate nalog? Kreirajte nalog" 
+                  : "Već imate nalog? Prijavite se"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </BlurView>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  backgroundImage: {
-    flex: 1,
-    resizeMode: 'cover',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-  },
   container: {
     flex: 1,
+  },
+  background: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    width: '100%',
+  },
+  blurContainer: {
+    width: width * 0.9,  
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.3)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.7,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  authContainer: {
+    padding: 25,
+    backgroundColor: 'rgba(255,255,255,0.05)', 
   },
   title: {
-    fontSize: 36,
+    fontSize: 28,
+    color: 'white',
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
+    textAlign: 'left',
+    marginBottom: 25,
+    opacity: 0.9,
   },
-  subtitle: {
-    fontSize: 18,
-    color: '#ddd',
-    marginBottom: 32,
+  inputContainer: {
+    marginBottom: 15,
   },
   input: {
-    width: '90%',
-    padding: 12,
-    marginBottom: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    borderRadius: 10,
+    padding: 15,
+    color: 'white',
     fontSize: 16,
-    color: '#000',
-  },
-  button: {
-    backgroundColor: '#6a1b9a',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-    width: '90%',
-    alignItems: 'center',
-  },
-  signUpButton: {
-    backgroundColor: 'transparent',
-    borderColor: '#fff',
     borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)', 
   },
-  signUpButtonText: {
-    color: '#fff',
+  errorText: {
+    color: '#ff4d4d',
+    fontSize: 12,
+    marginTop: 5,
+    opacity: 0.8,
+  },
+  primaryButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)', 
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)', 
   },
   buttonText: {
-    fontSize: 16,
+    color: 'white',
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    opacity: 0.9,
   },
-  error: {
-    color: 'red',
-    fontSize: 12,
-    marginBottom: 16,
-    textAlign: 'left',
-    width: '90%',
+  toggleButton: {
+    marginTop: 15,
+    alignItems: 'center',
   },
-  adminButton: {
-    backgroundColor: '#d32f2f',
+  toggleText: {
+    color: 'rgba(255,255,255,0.7)',
+    textDecorationLine: 'underline',
   },
 });
