@@ -22,7 +22,7 @@ const initialFormData: ProductFormData = {
   title: '',
   price: 0,
   heroImage: '',
-  category: '',
+  category: 0,
   slug: '',
   imagesUrl: [],
   sizes: [],

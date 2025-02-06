@@ -37,7 +37,7 @@ export default function MorphismAuthScreen() {
     },
   });
 
-  const onSubmit = async (data: any) => {
+  const handleSignIn = async (data: any) => {
     try {
       if (isLogin) {
         // Handle login
@@ -49,10 +49,22 @@ export default function MorphismAuthScreen() {
         if (error) throw error;
 
         if (authData.session) {
-          // Successful login - redirect to shop
-          router.replace('/(shop)');
-        }
+          // Check user type
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('type')
+            .eq('id', authData.session.user.id)
+            .single();
 
+          if (userError) throw userError;
+
+          // Redirect based on user type
+          if (userData?.type === 'ADMIN') {
+            router.replace('/admin');
+          } else {
+            router.replace('/(shop)');
+          }
+        }
       } else {
         // Handle sign up
         const { error } = await supabase.auth.signUp({
@@ -65,21 +77,13 @@ export default function MorphismAuthScreen() {
         Alert.alert(
           "Success!",
           "Account created successfully! Please check your email for verification and sign in.",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                setIsLogin(true); // Switch to login mode
-              }
-            }
-          ]
+          [{ text: "OK", onPress: () => setIsLogin(true) }]
         );
       }
     } catch (error: any) {
       Alert.alert(
-        "Error",
-        error.message || "An error occurred during authentication",
-        [{ text: "OK" }]
+        isLogin ? 'Login Failed' : 'Sign Up Failed',
+        error.message
       );
     }
   };
@@ -88,47 +92,38 @@ export default function MorphismAuthScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Gradient Background */}
       <LinearGradient
-        colors={["#CE590A", "#F4C66F"]}
+        colors={['#6a11cb', '#2575fc']}
         style={styles.background}
       >
-        {/* Blur Morphism Container */}
         <BlurView 
-          intensity={40}  // Reduced intensity for more visibility
+          intensity={20}  
           style={styles.blurContainer}
-          tint="dark"  // Added dark tint for more depth
         >
           <View style={styles.authContainer}>
-            <Text style={styles.title}>
-              {isLogin ? 'Dobrodošli' : 'Kreirajte nalog'}
+            <Text style={styles.title}>Welcome</Text>
+            <Text style={styles.subtitle}>
+              {isLogin ? 'Sign in to continue' : 'Create an account'}
             </Text>
 
-            {/* Email Input */}
             <Controller
               control={control}
               name="email"
               render={({ field: { onChange, value } }) => (
                 <View style={styles.inputContainer}>
                   <TextInput
-                    placeholder="Email Address"
+                    placeholder="Email"
                     placeholderTextColor="rgba(255,255,255,0.6)"
                     style={styles.input}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    value={value}
                     onChangeText={onChange}
+                    value={value}
+                    autoCapitalize="none"
                   />
-                  {errors.email && (
-                    <Text style={styles.errorText}>
-                      {errors.email.message}
-                    </Text>
-                  )}
+                  {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
                 </View>
               )}
             />
 
-            {/* Password Input */}
             <Controller
               control={control}
               name="password"
@@ -138,38 +133,38 @@ export default function MorphismAuthScreen() {
                     placeholder="Password"
                     placeholderTextColor="rgba(255,255,255,0.6)"
                     style={styles.input}
-                    secureTextEntry
-                    value={value}
                     onChangeText={onChange}
+                    value={value}
+                    secureTextEntry
+                    autoCapitalize="none"
                   />
-                  {errors.password && (
-                    <Text style={styles.errorText}>
-                      {errors.password.message}
-                    </Text>
-                  )}
+                  {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
                 </View>
               )}
             />
 
-            {/* Action Buttons */}
             <TouchableOpacity 
-              style={styles.primaryButton}
-              onPress={handleSubmit(onSubmit)}
+              style={styles.button} 
+              onPress={handleSubmit(handleSignIn)}
             >
-              <Text style={styles.buttonText}>
-                {isLogin ? 'Prijavite se' : 'Kreirajte nalog'}
-              </Text>
+              <LinearGradient 
+                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']} 
+                style={styles.buttonBackground}
+              >
+                <Text style={styles.buttonText}>
+                  {isLogin ? 'Sign In' : 'Sign Up'}
+                </Text>
+              </LinearGradient>
             </TouchableOpacity>
 
-            {/* Toggle Between Login/Signup */}
             <TouchableOpacity 
               onPress={() => setIsLogin(!isLogin)}
-              style={styles.toggleButton}
+              style={styles.switchContainer}
             >
-              <Text style={styles.toggleText}>
+              <Text style={styles.switchText}>
                 {isLogin 
-                  ? "Nemate nalog? Kreirajte nalog" 
-                  : "Već imate nalog? Prijavite se"}
+                  ? "Don't have an account? Sign up" 
+                  : "Already have an account? Sign in"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -189,73 +184,84 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   blurContainer: {
-    width: width * 0.9,  
+    width: width * 0.9,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.05)', 
+    backgroundColor: 'rgba(255,255,255,0.1)',
     ...Platform.select({
       ios: {
         shadowColor: 'rgba(0,0,0,0.3)',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.7,
-        shadowRadius: 10,
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
       },
       android: {
-        elevation: 10,
+        elevation: 5,
       },
     }),
   },
   authContainer: {
     padding: 25,
-    backgroundColor: 'rgba(255,255,255,0.05)', 
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
   },
   title: {
     fontSize: 28,
     color: 'white',
     fontWeight: 'bold',
-    textAlign: 'left',
-    marginBottom: 25,
+    textAlign: 'center',
+    marginBottom: 10,
     opacity: 0.9,
   },
+  subtitle: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
   inputContainer: {
+    width: '100%',
     marginBottom: 15,
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.1)', 
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 10,
     padding: 15,
     color: 'white',
     fontSize: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)', 
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   errorText: {
     color: '#ff4d4d',
     fontSize: 12,
     marginTop: 5,
     opacity: 0.8,
+    alignSelf: 'flex-start',
   },
-  primaryButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)', 
-    borderRadius: 10,
+  button: {
+    width: '100%',
+    marginTop: 10,
+  },
+  buttonBackground: {
     padding: 15,
     alignItems: 'center',
-    marginTop: 15,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)', 
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   buttonText: {
-    color: 'white',
+    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
     opacity: 0.9,
   },
-  toggleButton: {
+  switchContainer: {
     marginTop: 15,
-    alignItems: 'center',
   },
-  toggleText: {
+  switchText: {
     color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
     textDecorationLine: 'underline',
   },
 });
