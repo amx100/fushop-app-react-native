@@ -31,25 +31,27 @@ type OrderWithDetails = OrderWithStatus & {
 
 const renderItem: ListRenderItem<OrderWithDetails> = ({ item }) => (
   <Link href={`/orders/${item.slug}`} asChild>
-  <Pressable style={styles.orderContainer}>
-    <View style={styles.orderContent}>
-      <View style={styles.orderDetailsContainer}>
-        <Text style={styles.orderItem}>#{item.id} {item.slug} </Text>
-        <Text style={styles.orderEmail}>Customer: {item.user_email}</Text>
-        <Text style={styles.orderDetails}>
-          Total Price: ${item.totalPrice.toFixed(2)}
-        </Text>
-        <Text style={styles.orderDate}>
-          {format(new Date(item.created_at), 'MMM dd, yyyy')}
-        </Text>
+    <Pressable style={styles.orderContainer}>
+      <View style={styles.orderContent}>
+        <View style={styles.orderDetailsContainer}>
+          <Text style={styles.orderItem}>
+            #{item.id} {item.slug}
+          </Text>
+          <Text style={styles.orderEmail}>Customer: {item.user_email}</Text>
+          <Text style={styles.orderDetails}>
+            Total Price: ${item.totalPrice.toFixed(2)}
+          </Text>
+          <Text style={styles.orderDate}>
+            {format(new Date(item.created_at), 'MMM dd, yyyy')}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color="#888" />
       </View>
-      <Ionicons name="chevron-forward" size={24} color="#888" />
-    </View>
-    <View style={[styles.statusBadge, styles[`statusBadge_${item.status}`]]}>
-      <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
-    </View>
-  </Pressable>
-</Link>
+      <View style={[styles.statusBadge, styles[`statusBadge_${item.status}`]]}>
+        <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+      </View>
+    </Pressable>
+  </Link>
 );
 
 const Orders = () => {
@@ -95,17 +97,18 @@ const Orders = () => {
         throw err;
       }
 
-      const ordersWithDetails: OrderWithDetails[] = data?.map((order) => ({
-        ...order,
-        status: (order.status || 'Pending') as OrderStatus,
-        user_email: order.user_email?.email,
-        items: order.items.map((item: any) => ({
-          product_title: item.product.title,
-          product_image: item.product.heroImage,
-          quantity: item.quantity,
-          size: item.size,
-        })),
-      })) || [];
+      const ordersWithDetails: OrderWithDetails[] =
+        data?.map((order) => ({
+          ...order,
+          status: (order.status || 'Pending') as OrderStatus,
+          user_email: order.user_email?.email,
+          items: order.items.map((item: any) => ({
+            product_title: item.product.title,
+            product_image: item.product.heroImage,
+            quantity: item.quantity,
+            size: item.size,
+          })),
+        })) || [];
 
       return ordersWithDetails;
     } catch (err) {
@@ -124,7 +127,6 @@ const Orders = () => {
         setIsLoading(false);
       }
     } catch (err) {
-     
       setError(err as Error);
     } finally {
       setRefreshing(false);
@@ -139,69 +141,74 @@ const Orders = () => {
       }
     });
 
-    const channel = supabase.channel('orders-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order' }, async (payload) => {
-        // Helper function to fetch complete order details
-        const fetchOrderDetails = async (orderId: number) => {
-          const { data } = await supabase
-            .from('order')
-            .select(`
-              *,
-              user_email:users(email),
-              items:order_item(
-                quantity,
-                size,
-                product:product(
-                  title,
-                  heroImage
-                )
-              )
-            `)
-            .eq('id', orderId)
-            .single();
-
-          if (data) {
-            return {
-              ...data,
-              status: (data.status || 'Pending') as OrderStatus,
-              user_email: data.user_email?.email,
-              items: data.items.map((item: any) => ({
-                product_title: item.product.title,
-                product_image: item.product.heroImage,
-                quantity: item.quantity,
-                size: item.size,
-              })),
-            } as OrderWithDetails;
-          }
-          return null;
-        };
-
-        if (payload.eventType === 'INSERT') {
-          const newOrder = await fetchOrderDetails(payload.new.id);
-          if (newOrder) {
-            setOrders((currentOrders) => 
-              currentOrders ? [newOrder, ...currentOrders] : [newOrder]
-            );
-          }
-        } else if (payload.eventType === 'UPDATE') {
-          const updatedOrder = await fetchOrderDetails(payload.new.id);
-          if (updatedOrder) {
-            setOrders((currentOrders) => 
-              currentOrders 
-                ? currentOrders.map(order =>
-                    order.id === payload.new.id ? updatedOrder : order
+    const channel = supabase
+      .channel('orders-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'order' },
+        async (payload) => {
+          // Helper function to fetch complete order details
+          const fetchOrderDetails = async (orderId: number) => {
+            const { data } = await supabase
+              .from('order')
+              .select(`
+                *,
+                user_email:users(email),
+                items:order_item(
+                  quantity,
+                  size,
+                  product:product(
+                    title,
+                    heroImage
                   )
+                )
+              `)
+              .eq('id', orderId)
+              .single();
+
+            if (data) {
+              return {
+                ...data,
+                status: (data.status || 'Pending') as OrderStatus,
+                user_email: data.user_email?.email,
+                items: data.items.map((item: any) => ({
+                  product_title: item.product.title,
+                  product_image: item.product.heroImage,
+                  quantity: item.quantity,
+                  size: item.size,
+                })),
+              } as OrderWithDetails;
+            }
+            return null;
+          };
+
+          if (payload.eventType === 'INSERT') {
+            const newOrder = await fetchOrderDetails(payload.new.id);
+            if (newOrder) {
+              setOrders((currentOrders) =>
+                currentOrders ? [newOrder, ...currentOrders] : [newOrder]
+              );
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedOrder = await fetchOrderDetails(payload.new.id);
+            if (updatedOrder) {
+              setOrders((currentOrders) =>
+                currentOrders
+                  ? currentOrders.map((order) =>
+                      order.id === payload.new.id ? updatedOrder : order
+                    )
+                  : []
+              );
+            }
+          } else if (payload.eventType === 'DELETE') {
+            setOrders((currentOrders) =>
+              currentOrders
+                ? currentOrders.filter((order) => order.id !== payload.old.id)
                 : []
             );
           }
-        } else if (payload.eventType === 'DELETE') {
-          setOrders((currentOrders) => 
-            currentOrders 
-              ? currentOrders.filter(order => order.id !== payload.old.id)
-              : []
-          );
         }
-      })
+      )
       .subscribe();
 
     return () => {
@@ -209,23 +216,44 @@ const Orders = () => {
     };
   }, [session, fetchOrders]);
 
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text>Error: {error.message}</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'Orders' }} />
-   
       <FlatList
-        data={orders}
+        data={orders || []}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         refreshing={refreshing}
         onRefresh={refreshOrders}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              Trenutno nemate porudžbina.
+            </Text>
+          </View>
+        }
       />
     </View>
   );
 };
 
 export default Orders;
-
 
 const styles = StyleSheet.create({
   container: {
@@ -272,7 +300,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 4,
     alignSelf: 'flex-start',
-},
+  },
   statusText: {
     fontSize: 12,
     fontWeight: 'bold',
@@ -290,33 +318,24 @@ const styles = StyleSheet.create({
   statusBadge_InTransit: {
     backgroundColor: '#ff9800',
   },
-  itemsContainer: {
-    marginTop: 8,
-  },
-  orderItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: '#fff',
-    borderRadius: 6,
-  },
-  productImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 4,
-    marginRight: 10,
-  },
-  itemDetails: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  productTitle: {
-    fontSize: 14,
-    fontWeight: '500',
+  errorContainer: {
+    flex: 1,
+    padding: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  itemInfo: {
-    fontSize: 12,
+  emptyContainer: {
+    padding: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
     color: '#666',
-    marginTop: 2,
   },
 });

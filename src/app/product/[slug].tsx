@@ -186,7 +186,7 @@ const ProductDetails = () => {
     ({ item, index }: { item: string; index: number }) => {
       return (
         <Image
-          source={{ uri: item }}
+          source={{ uri: item, cache: 'force-cache' }}
           style={styles.thumbnailImage}
           key={`${product?.id}-image-${index}`}
         />
@@ -235,7 +235,10 @@ const ProductDetails = () => {
       <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
         {/* Full Hero Image Section */}
         <ImageBackground
-          source={{ uri: product.heroImage }}
+          source={{
+            uri: product.heroImage,
+            cache: 'force-cache', // Added cache policy similar to ProductListItem
+          }}
           style={styles.heroContainer}
           resizeMode="cover"
         >
@@ -290,15 +293,6 @@ const ProductDetails = () => {
                   >
                     {sizeData.size}
                   </Text>
-              {/*     <Text
-                    style={[
-                      styles.stockText,
-                      selectedSize === sizeData.size && styles.selectedStockText,
-                      sizeData.quantity === 0 && styles.disabledSizeText,
-                    ]}
-                  >
-                     {sizeData.quantity} na lageru 
-                  </Text> */}
                 </TouchableOpacity>
               ))}
             </View>
@@ -415,7 +409,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#f3f4f6',
     alignItems: 'center',
-  
   },
   selectedSizeButton: {
     backgroundColor: '#cc783f',
@@ -434,14 +427,6 @@ const styles = StyleSheet.create({
   },
   disabledSizeText: {
     color: '#9ca3af',
-  },
-  stockText: {
-    fontSize: 12,
-    color: '#6b7280',
-    //marginTop: 4,
-  },
-  selectedStockText: {
-    color: '#fff',
   },
   bottomBar: {
     position: 'absolute',

@@ -1,3 +1,4 @@
+import React, { memo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, Dimensions } from 'react-native';
 import { Link } from 'expo-router';
 import { Tables } from '../types/database.types';
@@ -9,17 +10,20 @@ const COLUMN_GAP = 2;
 // Calculate item width accounting for screen padding and gap
 const ITEM_WIDTH = (width - (2 * HORIZONTAL_SPACING) - COLUMN_GAP) / 2;
 
-export const ProductListItem = ({
-  product,
-}: {
+interface ProductListItemProps {
   product: Tables<'product'>;
-}) => {
+}
+
+const ProductListItemComponent = ({ product }: ProductListItemProps) => {
   return (
     <Link asChild href={`/product/${product.slug}`}>
       <Pressable style={styles.item}>
         <View style={styles.itemImageContainer}>
           <Image 
-            source={{ uri: product.heroImage }} 
+            source={{ 
+              uri: product.heroImage,
+              cache: 'force-cache' // Basic caching on supported platforms
+            }} 
             style={styles.itemImage}
           />
           <LinearGradient
@@ -40,15 +44,27 @@ export const ProductListItem = ({
   );
 };
 
+function areEqual(prevProps: ProductListItemProps, nextProps: ProductListItemProps) {
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.slug === nextProps.product.slug &&
+    prevProps.product.heroImage === nextProps.product.heroImage &&
+    prevProps.product.price === nextProps.product.price &&
+    prevProps.product.title === nextProps.product.title
+  );
+}
+
+export const ProductListItem = memo(ProductListItemComponent, areEqual);
+
 const styles = StyleSheet.create({
   item: {
     width: ITEM_WIDTH,
     marginBottom: 24,
   },
   itemImageContainer: {
-    marginTop:20,
+    marginTop: 20,
     width: '100%',
-    aspectRatio: 3/4,
+    aspectRatio: 3 / 4,
     backgroundColor: '#f5f5f5',
     position: 'relative',
   },

@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -25,7 +26,10 @@ const Category = () => {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: category.name }} />
-      <Image source={{ uri: category.imageUrl }} style={styles.categoryImage} />
+      <Image
+        source={{ uri: category.imageUrl, cache: 'force-cache' }} // Cache applied here
+        style={styles.categoryImage}
+      />
       <Text style={styles.categoryName}>{category.name}</Text>
       <FlatList
         data={products}
@@ -39,7 +43,7 @@ const Category = () => {
   );
 };
 
-export default Category;
+export default React.memo(Category);
 
 const styles = StyleSheet.create({
   container: {
@@ -64,25 +68,5 @@ const styles = StyleSheet.create({
   },
   productRow: {
     justifyContent: 'space-between',
-  },
-  productContainer: {
-    flex: 1,
-    margin: 8,
-  },
-  productImage: {
-    width: '100%',
-    height: 150,
-    resizeMode: 'cover',
-    borderRadius: 8,
-  },
-  productTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 8,
-  },
-  productPrice: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 4,
   },
 });
