@@ -21,7 +21,7 @@ export default function SizeManagement() {
       const { data, error } = await supabase
         .from('sizes')
         .select('id, value, created_at')
-        .order('value');
+        .order('created_at', { ascending: true });
       
       if (error) throw error;
       return data as Size[];
