@@ -11,7 +11,7 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
-import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useToast } from 'react-native-toast-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -27,6 +27,7 @@ const ProductDetails = () => {
   const toast = useToast();
   const { data: product, error, isLoading } = getProduct(slug);
   const { items, addItem, decrementItem } = useCartStore();
+  const router = useRouter();
 
   // Local state for selected size and the new quantity the user intends to add.
   const [selectedSize, setSelectedSize] = useState<SizeType | ''>('');
@@ -111,47 +112,29 @@ const ProductDetails = () => {
       });
       return;
     }
-    if (!product) return;
-
-    const sizeData = product.sizes?.find((s: ProductSize) => s.size === selectedSize);
-    if (!sizeData) {
-      toast.show('Selected size not found', {
-        type: 'error',
+    
+    // Dodatna provera statusa proizvoda i količine
+    if (product.status === 'out_of_stock') {
+      toast.show('Proizvod trenutno nije dostupan', {
+        type: 'warning',
         placement: 'top',
         duration: 1500,
       });
       return;
     }
 
-    const maxQuantity = getMaxQuantityForSize(selectedSize);
-
-    // First, if the cart already has the maximum available, warn and exit.
-    if (existingCartQuantity >= maxQuantity) {
-      toast.show(
-        `You already have the maximum (${maxQuantity}) items in size ${selectedSize} in your cart.`,
-        {
-          type: 'warning',
-          placement: 'top',
-          duration: 1500,
-        }
-      );
+    const sizeData = product.sizes?.find((s: ProductSize) => s.size === selectedSize);
+    
+    if (!sizeData || sizeData.quantity === 0) {
+      toast.show('Izabrana veličina nije dostupna', {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
       return;
     }
 
-    // Next, if the new quantity would cause an overflow, warn the user.
-    if (existingCartQuantity + quantity > maxQuantity) {
-      toast.show(
-        `You can only add ${maxQuantity - existingCartQuantity} more item(s) in size ${selectedSize}.`,
-        {
-          type: 'warning',
-          placement: 'top',
-          duration: 1500,
-        }
-      );
-      return;
-    }
-
-    // If all validations pass, add the item to the cart.
+    // Postojeća logika dodavanja u korpu...
     addItem({
       id: product.id,
       title: product.title,
@@ -161,7 +144,7 @@ const ProductDetails = () => {
       quantity,
       size: selectedSize,
       size_id: sizeData.size_id,
-      maxQuantity,
+      maxQuantity: sizeData.quantity,
     });
     toast.show('Added to cart', {
       type: 'success',
@@ -209,6 +192,63 @@ const ProductDetails = () => {
         <Text style={styles.errorText}>
           {error ? error.message : 'Product not found'}
         </Text>
+      </View>
+    );
+  }
+
+  if (product && product.status === 'out_of_stock') {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen
+          options={{
+            title: product.title,
+            headerTransparent: true,
+            headerTintColor: '#000',
+          }}
+        />
+
+        <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+          <View style={styles.heroContainer}>
+            <ImageBackground
+              source={{
+                uri: product.heroImage,
+                cache: 'force-cache',
+              }}
+              style={styles.heroImage}
+              resizeMode="cover"
+            >
+              <View style={styles.outOfStockOverlay}>
+                <Text style={styles.outOfStockText}>Nema na stanju</Text>
+              </View>
+              <LinearGradient
+                colors={['rgba(0,0,0,0.0)', 'rgba(0,0,0,0.6)']}
+                style={styles.gradientOverlay}
+              />
+            </ImageBackground>
+          </View>
+
+          <View style={styles.detailsCard}>
+            <Text style={styles.cardTitle}>{product.title}</Text>
+            <Text style={styles.cardPrice}>{product.price.toFixed(2)} RSD</Text>
+
+            <View style={styles.outOfStockMessageContainer}>
+              <Text style={styles.outOfStockDetailsMessage}>
+                Trenutno nema dostupnih artikala ove veličine.
+              </Text>
+            </View>
+
+            <View style={styles.galleryContainer}>
+              <FlatList
+                data={product.imagesUrl}
+                keyExtractor={(item, index) => `${product.id}-image-${index}`}
+                renderItem={renderThumbnail}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.thumbnailsContainer}
+              />
+            </View>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -269,29 +309,29 @@ const ProductDetails = () => {
             <View style={styles.sizeButtons}>
               {product.sizes?.map((sizeData: ProductSize) => (
                 <TouchableOpacity
-                  key={`${product.id}-${sizeData.size_id}`}
+                  key={sizeData.size}
                   style={[
                     styles.sizeButton,
                     selectedSize === sizeData.size && styles.selectedSizeButton,
-                    sizeData.quantity === 0 && styles.disabledSizeButton,
+                    (sizeData.quantity === 0 || product.status === 'out_of_stock') && styles.disabledSizeButton
                   ]}
                   onPress={() => {
-                    if (sizeData.quantity > 0) {
+                    // Allow selection only if there is quantity
+                    if (sizeData.quantity > 0 && product.status !== 'out_of_stock') {
                       setSelectedSize(sizeData.size as SizeType);
-                      // Reset the local quantity when switching sizes.
-                      setQuantity(0);
                     }
                   }}
-                  disabled={sizeData.quantity === 0}
+                  disabled={sizeData.quantity === 0 || product.status === 'out_of_stock'}
                 >
                   <Text
                     style={[
                       styles.sizeButtonText,
                       selectedSize === sizeData.size && styles.selectedSizeText,
-                      sizeData.quantity === 0 && styles.disabledSizeText,
+                      (sizeData.quantity === 0 || product.status === 'out_of_stock') && styles.disabledSizeText
                     ]}
                   >
-                    {sizeData.size}
+                    {sizeData.size} 
+                    {sizeData.quantity === 0 && ' (Nema)'}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -300,38 +340,56 @@ const ProductDetails = () => {
         </View>
       </ScrollView>
 
-      <BlurView intensity={90} tint="light" style={styles.bottomBar}>
-        <View style={styles.quantityContainer}>
+      {product.status !== 'out_of_stock' && (
+        <BlurView intensity={90} tint="light" style={styles.bottomBar}>
+          <View style={styles.quantityContainer}>
+            <TouchableOpacity
+              style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
+              onPress={handleDecreaseQuantity}
+              disabled={quantity <= 0 || !selectedSize}
+            >
+              <Text style={styles.quantityButtonText}>−</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.quantity}>{quantity}</Text>
+
+            <TouchableOpacity
+              style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
+              onPress={handleIncreaseQuantity}
+              disabled={!selectedSize || quantity >= getMaxQuantityForSize(selectedSize)}
+            >
+              <Text style={styles.quantityButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
-            style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
-            onPress={handleDecreaseQuantity}
-            disabled={quantity <= 0 || !selectedSize}
+            style={[
+              styles.addToCartButton,
+              { 
+                opacity: (
+                  quantity === 0 || 
+                  !selectedSize || 
+                  product.status === 'out_of_stock' || 
+                  product.sizes?.find((s: ProductSize) => s.size === selectedSize)?.quantity === 0
+                ) ? 0.5 : 1 
+              },
+            ]}
+            onPress={handleAddToCart}
+            disabled={
+              quantity === 0 || 
+              !selectedSize || 
+              product.status === 'out_of_stock' || 
+              product.sizes?.find((s: ProductSize) => s.size === selectedSize)?.quantity === 0
+            }
           >
-            <Text style={styles.quantityButtonText}>−</Text>
+            <Text style={styles.addToCartText}>
+              {product.status === 'out_of_stock' 
+                ? 'Nije dostupno' 
+                : `Add to Cart • ${totalPrice} RSD`}
+            </Text>
           </TouchableOpacity>
-
-          <Text style={styles.quantity}>{quantity}</Text>
-
-          <TouchableOpacity
-            style={[styles.quantityButton, !selectedSize && styles.disabledButton]}
-            onPress={handleIncreaseQuantity}
-            disabled={!selectedSize || quantity >= getMaxQuantityForSize(selectedSize)}
-          >
-            <Text style={styles.quantityButtonText}>+</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.addToCartButton,
-            { opacity: quantity === 0 || !selectedSize ? 0.5 : 1 },
-          ]}
-          onPress={handleAddToCart}
-          disabled={quantity === 0 || !selectedSize}
-        >
-          <Text style={styles.addToCartText}>Add to Cart • {totalPrice} RSD</Text>
-        </TouchableOpacity>
-      </BlurView>
+        </BlurView>
+      )}
     </View>
   );
 };
@@ -508,5 +566,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  outOfStockOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  outOfStockText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    textAlign: 'center',
+  },
+  outOfStockMessageContainer: {
+    backgroundColor: '#f8d7da',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  outOfStockDetailsMessage: {
+    color: '#721c24',
+    textAlign: 'center',
+    fontSize: 16,
+  },
+  heroImage: {
+    width: '100%',
+    height: height * 0.5,
   },
 });

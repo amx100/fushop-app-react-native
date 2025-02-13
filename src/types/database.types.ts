@@ -128,6 +128,7 @@ export type Database = {
       }
       product: {
         Row: {
+          status: string
           category: number
           created_at: string
           heroImage: string

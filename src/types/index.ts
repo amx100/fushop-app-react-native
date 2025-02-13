@@ -1,3 +1,5 @@
+export type ProductStatus = 'available' | 'out_of_stock';
+
 export type Product = {
   id: number;
   title: string;
@@ -7,6 +9,7 @@ export type Product = {
   slug: string;
   imagesUrl: string[];
   sizes?: ProductSize[];
+  status: ProductStatus;
 }
 
 export type ProductFormData = Omit<Product, 'id'> & {

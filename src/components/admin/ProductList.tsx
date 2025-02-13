@@ -57,6 +57,21 @@ export function ProductList({ products, isLoading, onEdit, onDelete, onCreateNew
               </View>
             </View>
           </View>
+          <View style={styles.productStatusContainer}>
+            <Text style={styles.productStatusLabel}>Status:</Text>
+            <View 
+              style={[
+                styles.productStatusBadge, 
+                product.status === 'available' 
+                  ? styles.availableStatus 
+                  : styles.outOfStockStatus
+              ]}
+            >
+              <Text style={styles.productStatusText}>
+                {product.status === 'available' ? 'Available' : 'Out of Stock'}
+              </Text>
+            </View>
+          </View>
           <View style={styles.productActions}>
             <TouchableOpacity
               style={[styles.actionButton, styles.editButton]}
@@ -389,5 +404,29 @@ const styles = StyleSheet.create({
     sizeText: {
       fontSize: 12,
       color: '#333',
+    },
+    productStatusContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 10,
+    },
+    productStatusLabel: {
+      marginRight: 10,
+      fontWeight: 'bold',
+    },
+    productStatusBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 5,
+    },
+    availableStatus: {
+      backgroundColor: '#4CAF50',
+    },
+    outOfStockStatus: {
+      backgroundColor: '#F44336',
+    },
+    productStatusText: {
+      color: 'white',
+      fontWeight: 'bold',
     },
   }); 

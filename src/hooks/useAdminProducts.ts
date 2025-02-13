@@ -26,6 +26,7 @@ export function useAdminProducts() {
           category,
           imagesUrl,
           created_at,
+          status,
           product_size:product_size(
             id,
             quantity,
@@ -145,6 +146,11 @@ export function useAdminProducts() {
         };
       }) || [];
 
+      // Set initial status based on sizes
+      const initialStatus = mappedSizes.some(size => size.quantity > 0) 
+        ? 'available' 
+        : 'out_of_stock';
+
       const { data: productData, error: productError } = await supabase
         .from('product')
         .insert({
@@ -153,7 +159,8 @@ export function useAdminProducts() {
           price: formData.price,
           heroImage: formData.heroImage,
           category: formData.category,
-          imagesUrl: formData.imagesUrl || []
+          imagesUrl: formData.imagesUrl || [],
+          status: initialStatus  // Add status here
         })
         .select()
         .single();
@@ -220,6 +227,11 @@ export function useAdminProducts() {
         };
       }) || [];
 
+      // Determine status based on sizes
+      const initialStatus = mappedSizes.some(size => size.quantity > 0) 
+        ? 'available' 
+        : 'out_of_stock';
+
       const { error: productError } = await supabase
         .from('product')
         .update({
@@ -228,7 +240,8 @@ export function useAdminProducts() {
           price: formData.price,
           heroImage: formData.heroImage,
           category: formData.category,
-          imagesUrl: formData.imagesUrl || []
+          imagesUrl: formData.imagesUrl || [],
+          status: initialStatus  // Update status here
         })
         .eq('id', id);
 
@@ -294,6 +307,7 @@ export function useAdminProducts() {
 
   const decrementSizeQuantity = async (productId: number, size: SizeType, quantity: number) => {
     try {
+      // First, decrement the size quantity
       const { error } = await supabase.rpc('decrement_size_quantity', {
         p_product_id: productId,
         p_size: size,
@@ -301,10 +315,43 @@ export function useAdminProducts() {
       });
 
       if (error) throw error;
+
+      // Then, check and update product status
+      await updateProductStatus(productId);
       
+      // Invalidate queries to refresh data
       await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
     } catch (error) {
       throw new Error('Error updating product quantity: ' + (error as Error).message);
+    }
+  };
+
+  // New function to update product status based on size quantities
+  const updateProductStatus = async (productId: number) => {
+    try {
+      // Fetch the current product sizes
+      const { data: productSizes, error: sizesError } = await supabase
+        .from('product_size')
+        .select('quantity')
+        .eq('product_id', productId);
+
+      if (sizesError) throw sizesError;
+
+      // Calculate total quantity across all sizes
+      const totalQuantity = productSizes.reduce((sum, size) => sum + size.quantity, 0);
+
+      // Update product status
+      const { error: updateError } = await supabase
+        .from('product')
+        .update({ 
+          status: totalQuantity > 0 ? 'available' : 'out_of_stock' 
+        })
+        .eq('id', productId);
+
+      if (updateError) throw updateError;
+    } catch (error) {
+      console.error('Error updating product status:', error);
+      throw error;
     }
   };
 
@@ -317,5 +364,6 @@ export function useAdminProducts() {
     pickImage,
     tempImageUrl,
     decrementSizeQuantity,
+    updateProductStatus,  // Expose this method if needed
   };
 } 
