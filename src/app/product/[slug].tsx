@@ -15,10 +15,12 @@ import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useToast } from 'react-native-toast-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { router } from 'expo-router';
 
 import { useCartStore } from '../../store/cart-store';
 import { getProduct } from '../../api/api';
 import { Product, ProductSize, SizeType } from '../../types';
+import { useAuth } from '../../providers/auth-provider';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,6 +30,7 @@ const ProductDetails = () => {
   const { data: product, error, isLoading } = getProduct(slug);
   const { items, addItem, decrementItem } = useCartStore();
   const router = useRouter();
+  const { session } = useAuth();
 
   // Local state for selected size and the new quantity the user intends to add.
   const [selectedSize, setSelectedSize] = useState<SizeType | ''>('');
@@ -104,6 +107,17 @@ const ProductDetails = () => {
 
   // Add to Cart callback with enhanced validation.
   const handleAddToCart = useCallback(() => {
+    // Check if user is logged in
+    if (!session) {
+      toast.show('Please sign in to add items to cart', {
+        type: 'warning',
+        placement: 'top',
+        duration: 1500,
+      });
+      router.push('/auth');
+      return;
+    }
+
     if (!selectedSize) {
       toast.show('Please select a size', {
         type: 'warning',
@@ -155,6 +169,7 @@ const ProductDetails = () => {
     // Reset the local quantity after a successful add.
     setQuantity(0);
   }, [
+    session,
     selectedSize,
     product,
     quantity,
@@ -162,6 +177,7 @@ const ProductDetails = () => {
     addItem,
     toast,
     existingCartQuantity,
+    router,
   ]);
 
   // Memoize the thumbnail renderItem to prevent unnecessary re-renders.
@@ -233,7 +249,7 @@ const ProductDetails = () => {
 
             <View style={styles.outOfStockMessageContainer}>
               <Text style={styles.outOfStockDetailsMessage}>
-                Trenutno nema dostupnih artikala ove veličine.
+                Trenutno nema dostupnih veličina ovog proizvoda.
               </Text>
             </View>
 
@@ -331,7 +347,7 @@ const ProductDetails = () => {
                     ]}
                   >
                     {sizeData.size} 
-                    {sizeData.quantity === 0 && ' (Nema)'}
+                    {sizeData.quantity === 0 && ''}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -375,17 +391,13 @@ const ProductDetails = () => {
               },
             ]}
             onPress={handleAddToCart}
-            disabled={
-              quantity === 0 || 
-              !selectedSize || 
-              product.status === 'out_of_stock' || 
-              product.sizes?.find((s: ProductSize) => s.size === selectedSize)?.quantity === 0
-            }
           >
             <Text style={styles.addToCartText}>
-              {product.status === 'out_of_stock' 
-                ? 'Nije dostupno' 
-                : `Add to Cart • ${totalPrice} RSD`}
+              {!session 
+                ? 'Sign In to Add to Cart' 
+                : (product.status === 'out_of_stock' 
+                  ? 'Nije dostupno' 
+                  : `Add to Cart • ${totalPrice} RSD`)}
             </Text>
           </TouchableOpacity>
         </BlurView>

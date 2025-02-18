@@ -54,6 +54,7 @@ export function useAdminProducts() {
 
   const uploadImage = async (uri: string) => {
     if (!uri?.startsWith('file://')) {
+      console.log('Invalid URI: ', uri);
       return null;
     }
 
@@ -61,23 +62,34 @@ export function useAdminProducts() {
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
       });
-      const filePath = `${randomUUID()}.png`;
+      
+      // Generate a truly unique file path each time
+      const filePath = `product-images/${Date.now()}-${randomUUID()}.png`;
       const contentType = 'image/png';
 
       const { data, error } = await supabase.storage
         .from('app-images')
-        .upload(filePath, decode(base64), { contentType });
+        .upload(filePath, decode(base64), { 
+          contentType,
+          upsert: true  // Allow overwriting existing files
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase upload error:', error);
+        throw error;
+      }
 
       if (data) {
         const { data: { publicUrl } } = supabase.storage
           .from('app-images')
           .getPublicUrl(data.path);
+        
+        console.log('Uploaded image URL:', publicUrl);
         return publicUrl;
       }
     } catch (error) {
-   
+      console.error('Image upload error:', error);
+      Toast.show('Failed to upload image', { type: 'error' });
       return null;
     }
   };
@@ -87,25 +99,41 @@ export function useAdminProducts() {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         alert('Camera roll permissions are required!');
-        return;
+        return null;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 1,
       });
 
-      if (!result.canceled) {
-        const uploadedUrl = await uploadImage(result.assets[0].uri);
+      console.log('Image picker result:', result);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        console.log('Selected image URI:', uri);
+
+        // Force a new upload each time by generating a unique file path
+        const uploadedUrl = await uploadImage(uri);
         if (uploadedUrl) {
-          setTempImageUrl(uploadedUrl);
+          // Clear previous temp URL first
+          setTempImageUrl('');
+          
+          // Short timeout to ensure state update
+          setTimeout(() => {
+            setTempImageUrl(uploadedUrl);
+          }, 50);
+
           Toast.show('Image uploaded successfully', { type: 'success' });
           return uploadedUrl;
+        } else {
+          Toast.show('Failed to upload image', { type: 'error' });
         }
       }
     } catch (error: any) {
+      console.error('Image picking error:', error);
       alert('Error picking image: ' + error.message);
     }
     return null;

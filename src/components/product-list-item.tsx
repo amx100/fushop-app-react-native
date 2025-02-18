@@ -115,7 +115,6 @@ const styles = StyleSheet.create({
   },
   outOfStockPrice: {
     color: '#999',
-    textDecorationLine: 'line-through',
   },
   outOfStockTitle: {
     color: '#999',

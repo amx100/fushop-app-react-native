@@ -12,9 +12,16 @@ export type Product = {
   status: ProductStatus;
 }
 
-export type ProductFormData = Omit<Product, 'id'> & {
+export interface ProductFormData {
+  title: string;
+  slug?: string;
+  price: number;
+  heroImage: string;
+  category: number | null;
+  imagesUrl?: string[];
   sizes?: ProductSize[];
-};
+  status?: 'available' | 'out_of_stock';
+}
 
 export type OrderStatus = 'Pending' | 'Completed' | 'Shipped' | 'InTransit';
 

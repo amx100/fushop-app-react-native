@@ -7,8 +7,9 @@ import {
   Text,
   View,
   Image,
+  TouchableOpacity,
 } from 'react-native';
-import { Link, Stack } from 'expo-router';
+import { Link, router, Stack } from 'expo-router';
 import { format } from 'date-fns';
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
@@ -216,6 +217,23 @@ const Orders = () => {
     };
   }, [session, fetchOrders]);
 
+  if (!session) {
+    return (
+      <View style={styles.unauthenticatedContainer}>
+        <Ionicons name="lock-closed" size={64} color="#888" />
+        <Text style={styles.unauthenticatedSubtitle}>
+          Morate biti prijavljeni da biste videli svoje porudžbine
+        </Text>
+        <TouchableOpacity 
+          style={styles.loginButton}
+          onPress={() => router.push('/auth')}
+        >
+          <Text style={styles.loginButtonText}>Prijavite se</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -337,5 +355,38 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#666',
+  },
+  unauthenticatedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f8f8f8',
+  },
+  unauthenticatedSubtitle: {
+    paddingTop: 15,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  loginButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#333',
+    backgroundColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  loginButtonText: {
+    color: 'black',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
