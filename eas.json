@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 12.3.0",
+    "version": ">= 15.0.10",
     "appVersionSource": "remote"
   },
   "build": {
@@ -9,10 +9,16 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://laoiuxdnacadkmyqwszt.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxhb2l1eGRuYWNhZGtteXF3c3p0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM3MTY4MjUsImV4cCI6MjA0OTI5MjgyNX0.9MKN7Hi5Ur2T7vmtsJLXJGFBSoZlc2DxwxBuT21HvS4"
+      }
     },
     "production": {
-      "autoIncrement": true
     }
   },
   "submit": {
