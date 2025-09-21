@@ -13,6 +13,9 @@ import {
   Platform,
   KeyboardAvoidingView
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { ProductFormData, Category, SizeType } from '../../types/index';
 import { Picker } from '@react-native-picker/picker';
 import { useQuery } from '@tanstack/react-query';
@@ -30,7 +33,7 @@ type ProductModalProps = {
   onClose: () => void;
   onSubmit: (data: ProductFormData) => void;
   onChange: (data: Partial<ProductFormData>) => void;
-  onPickImage: () => void;
+  onPickImage: () => Promise<string | null>;
   categories: Category[];
 };
 
@@ -38,12 +41,10 @@ const useCategories = () => {
   return useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('category')
-        .select('*');
+      const { data, error } = await supabase.from('category').select('*');
       if (error) throw error;
       return data as Category[];
-    }
+    },
   });
 };
 
@@ -51,13 +52,10 @@ const useSizes = () => {
   return useQuery({
     queryKey: ['sizes'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sizes')
-        .select('*')
-        .order('created_at', { ascending: true });
+      const { data, error } = await supabase.from('sizes').select('*').order('created_at', { ascending: true });
       if (error) throw error;
       return data;
-    }
+    },
   });
 };
 
@@ -77,52 +75,49 @@ export function ModernProductModal({
   const [newQuantity, setNewQuantity] = useState<string>('');
   const [sizeError, setSizeError] = useState<string>('');
   const { data: allCategories } = useCategories();
-  const { data: sizes, isLoading: sizesLoading } = useSizes();
+  const { data: sizes } = useSizes();
 
-  // Animation values
+  // Animacija zaglavlja pri scrollanju
   const headerHeight = scrollY.interpolate({
     inputRange: [0, 100],
-    outputRange: [200, 100],
+    outputRange: [240, 120],
     extrapolate: 'clamp'
   });
-
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
-    outputRange: [1, 0.9],
+    outputRange: [1, 0.85],
     extrapolate: 'clamp'
   });
 
   const handleAddSize = () => {
     if (!newSize || !newQuantity) {
-      setSizeError('Please fill in both size and quantity');
+      setSizeError('Molimo unesite veličinu i količinu');
       return;
     }
-
     const quantity = parseInt(newQuantity);
     if (isNaN(quantity) || quantity <= 0) {
-      setSizeError('Please enter a valid quantity');
+      setSizeError('Unesite valjanu količinu');
       return;
     }
-
-    // Check if size already exists
     const sizeExists = formData.sizes?.some(s => s.size === newSize);
     if (sizeExists) {
-      setSizeError(`Size ${newSize} is already added`);
+      setSizeError(`Veličina ${newSize} već postoji`);
       return;
     }
-
     const currentSizes = formData.sizes || [];
     onChange({
-      sizes: [...currentSizes, { 
-        size: newSize as SizeType, 
-        quantity, 
-        id: 0, 
-        product_id: 0, 
-        size_id: 0, 
-        created_at: '' 
-      }]
+      sizes: [
+        ...currentSizes,
+        { 
+          size: newSize as SizeType, 
+          quantity, 
+          id: 0, 
+          product_id: 0, 
+          size_id: 0, 
+          created_at: '' 
+        }
+      ]
     });
-
     setNewSize('');
     setNewQuantity('');
     setSizeError('');
@@ -135,317 +130,315 @@ export function ModernProductModal({
 
   const handleSubmit = async () => {
     if (!formData.title || !formData.price || !formData.category || !formData.heroImage || !formData.sizes?.length) {
-      alert('Please fill in all required fields');
+      alert('Molimo popunite sva obavezna polja');
       return;
     }
-
     try {
       const finalFormData = {
         ...formData,
         slug: !isEditing ? generateSlugFromTitle(formData.title) : formData.slug,
         imagesUrl: formData.imagesUrl || [],
       };
-      
       await onSubmit(finalFormData);
       onClose();
     } catch (error) {
-      alert('Error saving product: ' + (error as Error).message);
+      console.error('Greška prilikom spremanja proizvoda:', error);
+      alert('Greška: ' + (error as Error).message);
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const uploadedUrl = await onPickImage();
+      if (uploadedUrl) {
+        onChange({ heroImage: '' });
+        setTimeout(() => {
+          onChange({ heroImage: uploadedUrl });
+        }, 50);
+      }
+    } catch (error) {
+      console.error('Greška pri odabiru slike:', error);
     }
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]}>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={28} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {isEditing ? 'Edit Product' : 'New Product'}
-          </Text>
-        </Animated.View>
-
-        <Animated.ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: false }
-          )}
-        >
-          <TouchableOpacity onPress={onPickImage} style={styles.imageContainer}>
-            {formData.heroImage ? (
-              <Image
-                source={{ uri: formData.heroImage }}
-                style={styles.productImage}
-              />
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <MaterialIcons name="add-a-photo" size={40} color="#666" />
-                <Text style={styles.placeholderText}>Add Product Image</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.formContainer}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Product Name</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.title}
-                onChangeText={(text) => onChange({ title: text })}
-                placeholder="Enter product name"
-                placeholderTextColor="#666"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Price</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.price?.toString()}
-                onChangeText={(text) => onChange({ price: Number(text) || 0 })}
-                placeholder="Enter price"
-                keyboardType="numeric"
-                placeholderTextColor="#666"
-              />
-            </View>
-
-            <View style={styles.sizesContainer}>
-              <Text style={styles.sectionTitle}>Sizes & Stock</Text>
-              <View style={styles.sizeInputGroup}>
-                <Picker
-                  selectedValue={newSize}
-                  onValueChange={setNewSize}
-                  style={styles.sizePicker}
-                >
-                  <Picker.Item label="Select size" value="" />
-                  {sizes?.map((size) => (
-                    <Picker.Item 
-                      key={size.id} 
-                      label={size.value} 
-                      value={size.value} 
-                    />
-                  ))}
-                </Picker>
-                <TextInput
-                  style={styles.quantityInput}
-                  value={newQuantity}
-                  onChangeText={setNewQuantity}
-                  placeholder="Qty"
-                  keyboardType="numeric"
-                  placeholderTextColor="#666"
-                />
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={handleAddSize}
-                >
-                  <Ionicons name="add" size={24} color="#fff" />
+    <Modal visible={visible} animationType="fade" transparent>
+      <SafeAreaView style={styles.safeContainer}>
+        <LinearGradient colors={['#8EC5FC', '#E0C3FC']} style={styles.fullScreen}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+            <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]}>
+              <BlurView intensity={50} tint="light" style={StyleSheet.absoluteFill}>
+                <LinearGradient colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)']} style={styles.headerGradient}>
+                  <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                    <Ionicons name="close" size={28} color="#FFF" />
+                  </TouchableOpacity>
+                  <Text style={styles.headerTitle}>{isEditing ? 'Uredi Proizvod' : 'Novi Proizvod'}</Text>
+                </LinearGradient>
+              </BlurView>
+            </Animated.View>
+            <Animated.ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+            >
+              {/* Sekcija: Slika */}
+              <View style={styles.formSection}>
+                <TouchableOpacity onPress={handlePickImage} style={styles.imageContainer}>
+                  {formData.heroImage ? (
+                    <Image source={{ uri: formData.heroImage }} style={styles.productImage} />
+                  ) : (
+                    <View style={styles.imagePlaceholder}>
+                      <MaterialIcons name="add-a-photo" size={40} color="#888" />
+                      <Text style={styles.placeholderText}>Dodaj sliku</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               </View>
-              {sizeError ? <Text style={styles.errorText}>{sizeError}</Text> : null}
 
-              <View style={styles.sizesList}>
-                {formData.sizes?.map((size) => (
-                  <Animated.View
-                    key={size.size}
-                    style={styles.sizeItem}
-                  >
-                    <Text style={styles.sizeText}>{size.size}</Text>
-                    <Text style={styles.quantityText}>{size.quantity}</Text>
-                    <TouchableOpacity
-                      style={styles.removeButton}
-                      onPress={() => size.size && handleRemoveSize(size.size)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#fff" />
-                    </TouchableOpacity>
-                  </Animated.View>
-                ))}
+              {/* Sekcija: Osnovni podaci */}
+              <View style={styles.formSection}>
+                <Text style={styles.sectionHeader}>Osnovni podaci</Text>
+                <View style={styles.inputRow}>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Naziv proizvoda</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={formData.title}
+                      onChangeText={(text) => onChange({ title: text })}
+                      placeholder="Unesite naziv proizvoda"
+                      placeholderTextColor="#AAA"
+                    />
+                  </View>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Cijena</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={formData.price?.toString()}
+                      onChangeText={(text) => onChange({ price: Number(text) || 0 })}
+                      placeholder="Unesite cijenu"
+                      keyboardType="numeric"
+                      placeholderTextColor="#AAA"
+                    />
+                  </View>
+                </View>
               </View>
-            </View>
 
-            <View style={styles.categoriesSection}>
-              <Text style={styles.sectionTitle}>Category</Text>
-              <TextInput
-                style={styles.searchInput}
-                value={searchCategory}
-                onChangeText={setSearchCategory}
-                placeholder="Search categories..."
-                placeholderTextColor="#666"
-              />
-              <View style={styles.categoriesList}>
-                {allCategories?.filter(cat =>
-                  cat.name.toLowerCase().includes(searchCategory.toLowerCase())
-                ).map((category) => (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={[
-                      styles.categoryChip,
-                      formData.category === category.id && styles.selectedCategoryChip
-                    ]}
-                    onPress={() => onChange({ category: category.id })}
-                  >
-                    <Text style={[
-                      styles.categoryChipText,
-                      formData.category === category.id && styles.selectedCategoryChipText
-                    ]}>
-                      {category.name}
-                    </Text>
+              {/* Sekcija: Veličine i zalihe */}
+              <View style={styles.formSection}>
+                <Text style={styles.sectionHeader}>Veličine i zalihe</Text>
+                <View style={styles.inputRow}>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Veličina</Text>
+                    <Picker selectedValue={newSize} onValueChange={setNewSize} style={styles.picker}>
+                      {sizes?.map((size) => (
+                        <Picker.Item key={size.id} label={size.value} value={size.value} />
+                      ))}
+                    </Picker>
+                  </View>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Količina</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={newQuantity}
+                      onChangeText={setNewQuantity}
+                      placeholder="Unesite količinu"
+                      keyboardType="numeric"
+                      placeholderTextColor="#AAA"
+                    />
+                  </View>
+                  <TouchableOpacity style={styles.addButton} onPress={handleAddSize}>
+                    <Ionicons name="add" size={24} color="#FFF" />
                   </TouchableOpacity>
-                ))}
+                </View>
+                {sizeError ? <Text style={styles.errorText}>{sizeError}</Text> : null}
+                <View style={styles.sizesList}>
+                  {formData.sizes?.map((size) => (
+                    <View key={size.size} style={styles.sizeItem}>
+                      <Text style={styles.sizeText}>{size.size} :</Text>
+                      <Text style={styles.quantityText}>{size.quantity}</Text>
+                      <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveSize(size.size || '')}>
+                        <Ionicons name="trash-outline" size={18} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
               </View>
-            </View>
-          </View>
-        </Animated.ScrollView>
 
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.footerButton, styles.cancelButton]}
-            onPress={onClose}
-          >
-            <Text style={styles.cancelButton}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.footerButton, styles.submitButton]}
-            onPress={handleSubmit}
-          >
-            <Text style={styles.submitButton}>
-              {isEditing ? 'Update' : 'Create'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+              {/* Sekcija: Kategorije */}
+              <View style={styles.formSection}>
+                <Text style={styles.sectionHeader}>Kategorija</Text>
+                <TextInput
+                  style={styles.input}
+                  value={searchCategory}
+                  onChangeText={setSearchCategory}
+                  placeholder="Pretraži kategorije..."
+                  placeholderTextColor="#AAA"
+                />
+                <View style={styles.categoriesList}>
+                  {allCategories?.filter(cat =>
+                    cat.name?.toLowerCase().includes(searchCategory.toLowerCase())
+                  ).map((category) => (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={[
+                        styles.categoryChip,
+                        formData.category === category.id && styles.selectedCategoryChip
+                      ]}
+                      onPress={() => {
+                        onChange({ 
+                          category: formData.category === category.id ? undefined : category.id 
+                        });
+                      }}
+                    >
+                      <Text 
+                        style={[
+                          styles.categoryChipText,
+                          formData.category === category.id && styles.selectedCategoryChipText
+                        ]}
+                      >
+                        {category.name || 'Unnamed Category'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </Animated.ScrollView>
+
+            {/* Footer s akcijskim gumbima */}
+            <View style={styles.footer}>
+              <TouchableOpacity style={[styles.footerButton, styles.cancelButton]} onPress={onClose}>
+                <Text style={styles.footerButtonText}>Odustani</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.footerButton, styles.submitButton]} onPress={handleSubmit}>
+                <Text style={styles.footerButtonText}>{isEditing ? 'Ažuriraj' : 'Kreiraj'}</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </LinearGradient>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  safeContainer: {
+    flex: 1,
+  },
+  fullScreen: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#2196F3',
-    padding: SPACING,
-    justifyContent: 'flex-end',
+    width: '100%',
+    overflow: 'hidden',
+    marginBottom: SPACING,
+  },
+  headerGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: SPACING,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#FFF',
+    textAlign: 'center',
+    letterSpacing: 1,
   },
   closeButton: {
     position: 'absolute',
-    top: SPACING * 2,
+    top: SPACING,
     right: SPACING,
     zIndex: 1,
   },
   scrollContent: {
+    paddingHorizontal: SPACING,
+    paddingBottom: SPACING * 3,
+  },
+  formSection: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 20,
     padding: SPACING,
-  },
-  imageContainer: {
-    height: 250,
-    backgroundColor: '#fff',
-    borderRadius: 15,
     marginBottom: SPACING,
-    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 5,
   },
-  productImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+  sectionHeader: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: SPACING / 2,
+    color: '#333',
+    borderBottomWidth: 1,
+    borderBottomColor: '#DDD',
+    paddingBottom: SPACING / 2,
   },
-  imagePlaceholder: {
+  inputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: SPACING,
+  },
+  inputContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-  },
-  placeholderText: {
-    marginTop: 10,
-    color: '#666',
-    fontSize: 16,
-  },
-  formContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: SPACING,
-    marginBottom: SPACING,
-  },
-  inputGroup: {
+    minWidth: '48%',
     marginBottom: SPACING,
   },
   label: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 16,
+    color: '#555',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF',
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 15,
     fontSize: 16,
     color: '#333',
+    borderWidth: 1,
+    borderColor: '#DDD',
   },
-  sizesContainer: {
-    marginBottom: SPACING,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-  },
-  sizeInputGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
-  },
-  sizePicker: {
-    flex: 2,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-  },
-  quantityInput: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
+  picker: {
+    backgroundColor: '#FFF',
     padding: 15,
-    borderRadius: 10,
-    fontSize: 16,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#DDD',
   },
   addButton: {
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 10,
+    marginBottom: 21,
+    backgroundColor: '#34A853',
+    padding: 12,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'flex-end',
   },
   errorText: {
-    color: '#f44336',
-    fontSize: 14,
+    color: '#D93025',
+    fontSize: 16,
     marginTop: 5,
   },
   sizesList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginTop: 10,
+    marginTop: SPACING,
   },
   sizeItem: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    padding: 10,
+    backgroundColor: '#FFF',
+    borderRadius: 15,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#DDD',
   },
   sizeText: {
     fontSize: 16,
@@ -453,44 +446,35 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   quantityText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#666',
   },
   removeButton: {
-    backgroundColor: '#f44336',
+    backgroundColor: '#D93025',
     padding: 8,
-    borderRadius: 8,
-  },
-  categoriesSection: {
-    marginBottom: SPACING,
-  },
-  searchInput: {
-    backgroundColor: '#f5f5f5',
-    padding: 15,
-    borderRadius: 10,
-    fontSize: 16,
-    marginBottom: 10,
+    borderRadius: 15,
   },
   categoriesList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+    marginTop: SPACING,
   },
   categoryChip: {
-    backgroundColor: '#f5f5f5',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
+    backgroundColor: '#FFF',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DDD',
   },
   selectedCategoryChip: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
+    backgroundColor: '#0073e6',
+    borderColor: '#8EC5FC',
   },
   categoryChipText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 16,
+    color: '#444',
   },
   selectedCategoryChipText: {
     color: '#fff',
@@ -498,22 +482,58 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     padding: SPACING,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: '#DDD',
     gap: 10,
   },
   footerButton: {
     flex: 1,
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f44336',
+    backgroundColor: '#D93025',
   },
   submitButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#34A853',
+  },
+  footerButtonText: {
+    fontSize: 18,
+    color: '#FFF',
+    fontWeight: '700',
+  },
+  imageContainer: {
+    height: 260,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 30,
+    marginBottom: SPACING,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 10,
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imagePlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderText: {
+    marginTop: 10,
+    color: '#555',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });
+
+export default ModernProductModal;

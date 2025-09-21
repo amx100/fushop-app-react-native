@@ -5,7 +5,7 @@ import { ModernProductModal } from '../components/admin/ProductModal';
 import { CategoryModal } from '../components/admin/CategoryModal';
 import { useAuth } from '../providers/auth-provider';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Product, ProductFormData, Order, OrderStatus, Category, CategoryFormData, ProductSize, SizeType } from '../types/index';
 import { useAdminProducts } from '../hooks/useAdminProducts';
 import { useAdminOrders } from '../hooks/useAdminOrders';
@@ -16,6 +16,8 @@ import { CategoryList } from '../components/admin/CategoryList';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import SizeManagement from '../components/admin/SizeModal';
+import { useQueryClient } from '@tanstack/react-query';
+import { ProductListSkeleton, OrderListSkeleton, CategoryListSkeleton } from '../components/admin/LoadingSkeleton';
 
 
 const initialFormData: ProductFormData = {
@@ -31,12 +33,13 @@ const initialFormData: ProductFormData = {
 const initialCategoryFormData: CategoryFormData = {
   name: '',
   slug: '',
-  imageUrl: '',
+  imageurl: '',
 };
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'categories' | 'sizes'>('products');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
@@ -70,6 +73,129 @@ export default function AdminDashboard() {
     handleUpdateCategory,
     handleDeleteCategory,
   } = useAdminCategories();
+
+  // Prefetch all data when component mounts
+  useEffect(() => {
+    const prefetchAllData = async () => {
+      // Prefetch all admin data in parallel
+      await Promise.all([
+        queryClient.prefetchQuery({
+          queryKey: ['admin-products'],
+          queryFn: async () => {
+            const { data: productsData, error: productsError } = await supabase
+              .from('product')
+              .select(`
+                id,
+                title,
+                slug,
+                price,
+                heroimage,
+                category,
+                imagesurl,
+                created_at,
+                status,
+                product_size:product_size(
+                  id,
+                  quantity,
+                  size_id,
+                  sizes:sizes(value)
+                )
+              `)
+              .order('created_at', { ascending: false })
+              .limit(50); // Limit initial prefetch to 50 products
+
+            if (productsError) throw productsError;
+
+            return productsData?.map((product: any) => ({
+              ...product,
+              sizes: product.product_size?.map((ps: any) => ({
+                ...ps,
+                size: ps.sizes?.value || 'Unknown'
+              })) || []
+            })) || [];
+          },
+          staleTime: 1000 * 60 * 5,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: ['admin-orders'],
+          queryFn: async () => {
+            const { data: ordersData, error } = await supabase
+              .from('order')
+              .select(`
+                *,
+                user_email:users(email),
+                items:order_item(
+                  quantity,
+                  size,
+                  product:product(
+                    title,
+                    heroimage
+                  )
+                )
+              `)
+              .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (ordersData) {
+              return ordersData.map((order) => ({
+                id: order.id,
+                slug: order.slug,
+                created_at: order.created_at,
+                totalPrice: order.totalprice,
+                status: order.status,
+                user_email: order.user_email,
+                items: order.items.map((item: any) => ({
+                  product: {
+                    title: item.product?.title || 'Unknown Product',
+                    heroImage: item.product?.heroimage || '',
+                  },
+                  size: item.size,
+                  quantity: item.quantity,
+                })),
+              }));
+            }
+            
+            return [];
+          },
+          staleTime: 1000 * 60 * 2,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: ['categories'],
+          queryFn: async () => {
+            const { data, error } = await supabase
+              .from('category')
+              .select('id, name, slug, imageurl, products, created_at')
+              .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            return data;
+          },
+          staleTime: 1000 * 60 * 5,
+        }),
+      ]);
+    };
+
+    prefetchAllData();
+  }, [queryClient]);
+
+  // Background refetch when switching tabs (silent refresh)
+  const handleTabSwitch = (tab: 'products' | 'orders' | 'categories' | 'sizes') => {
+    setActiveTab(tab);
+    
+    // Silently refresh data for the selected tab
+    switch (tab) {
+      case 'products':
+        queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+        break;
+      case 'orders':
+        queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+        break;
+      case 'categories':
+        queryClient.invalidateQueries({ queryKey: ['categories'] });
+        break;
+    }
+  };
 
   const resetForm = () => {
     setFormData(initialFormData);
@@ -108,9 +234,9 @@ export default function AdminDashboard() {
       title: product.title,
       slug: product.slug,
       price: product.price,
-      heroImage: product.heroImage,
+      heroImage: product.heroimage,
       category: product.category,
-      imagesUrl: product.imagesUrl || [],
+      imagesUrl: product.imagesurl || [],
       sizes: product.sizes || []
     });
     setIsModalVisible(true);
@@ -139,28 +265,44 @@ export default function AdminDashboard() {
     setFormData(prev => ({ ...prev, ...changes }));
   };
 
-  const filteredProducts = products?.filter(product => 
-    product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.slug.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Memoized filtered data to prevent unnecessary re-calculations
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    if (!searchQuery.trim()) return products;
+    
+    const query = searchQuery.toLowerCase();
+    return products.filter(product => 
+      product.title.toLowerCase().includes(query) ||
+      product.slug.toLowerCase().includes(query)
+    );
+  }, [products, searchQuery]);
 
-  const filteredOrders = orders?.filter(order => {
-    if (!searchQuery) return true;
+  const filteredOrders = useMemo(() => {
+    if (!orders) return [];
+    if (!searchQuery.trim()) return orders;
     
     const searchLower = searchQuery.toLowerCase();
     
-    // Search by order slug/ID
-    const slugMatch = order.slug.toLowerCase().includes(searchLower);
-    // Pretraga po e-pošti kupca
-    const emailMatch = typeof order.user_email === 'object' && order.user_email.email.toLowerCase().includes(searchLower) || false;
-    
-    return slugMatch || emailMatch;
-  });
+    return orders.filter(order => {
+      // Search by order slug/ID
+      const slugMatch = order.slug.toLowerCase().includes(searchLower);
+      // Pretraga po e-pošti kupca
+      const emailMatch = typeof order.user_email === 'object' && order.user_email.email.toLowerCase().includes(searchLower) || false;
+      
+      return slugMatch || emailMatch;
+    });
+  }, [orders, searchQuery]);
 
-  const filteredCategories = categories?.filter(category => 
-    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    category.slug.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredCategories = useMemo(() => {
+    if (!categories) return [];
+    if (!searchQuery.trim()) return categories;
+    
+    const query = searchQuery.toLowerCase();
+    return categories.filter(category => 
+      (category.name?.toLowerCase() || '').includes(query) ||
+      category.slug.toLowerCase().includes(query)
+    );
+  }, [categories, searchQuery]);
 
   return (
     <View style={styles.container}>
@@ -180,7 +322,7 @@ export default function AdminDashboard() {
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'products' && styles.activeTab]}
-          onPress={() => setActiveTab('products')}
+          onPress={() => handleTabSwitch('products')}
         >
           <Text style={[styles.tabText, activeTab === 'products' && styles.activeTabText]}>
             Products
@@ -189,7 +331,7 @@ export default function AdminDashboard() {
 
         <TouchableOpacity
           style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
-          onPress={() => setActiveTab('orders')}
+          onPress={() => handleTabSwitch('orders')}
         >
           <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
             Orders
@@ -198,7 +340,7 @@ export default function AdminDashboard() {
 
         <TouchableOpacity
           style={[styles.tab, activeTab === 'categories' && styles.activeTab]}
-          onPress={() => setActiveTab('categories')}
+          onPress={() => handleTabSwitch('categories')}
         >
           <Text style={[styles.tabText, activeTab === 'categories' && styles.activeTabText]}>
             Categories
@@ -207,7 +349,7 @@ export default function AdminDashboard() {
 
         <TouchableOpacity
           style={[styles.tab, activeTab === 'sizes' && styles.activeTab]}
-          onPress={() => setActiveTab('sizes')}
+          onPress={() => handleTabSwitch('sizes')}
         >
           <Text style={[styles.tabText, activeTab === 'sizes' && styles.activeTabText]}>
             Sizes
@@ -240,24 +382,36 @@ export default function AdminDashboard() {
       )}
 
       {activeTab === 'products' && (
-        <ProductList
-          products={filteredProducts || []}
-          isLoading={productsLoading}
-          onEdit={handleEdit}
-          onDelete={handleDeleteProduct}
-          onCreateNew={handleCreateNew}
-        />
+        <>
+          {productsLoading ? (
+            <ProductListSkeleton />
+          ) : (
+            <ProductList
+              products={filteredProducts || []}
+              isLoading={productsLoading}
+              onEdit={handleEdit}
+              onDelete={handleDeleteProduct}
+              onCreateNew={handleCreateNew}
+            />
+          )}
+        </>
       )}
 
       {activeTab === 'orders' && (
-        <OrderList
-          orders={filteredOrders ? filteredOrders.map(order => ({
-            ...order,
-            user_email: typeof order.user_email === 'string' ? order.user_email : order.user_email?.email || 'Unknown'
-          })) : []}
-          isLoading={ordersLoading}
-          onUpdateStatus={updateOrderStatus}
-        />
+        <>
+          {ordersLoading ? (
+            <OrderListSkeleton />
+          ) : (
+            <OrderList
+              orders={filteredOrders ? filteredOrders.map(order => ({
+                ...order,
+                user_email: typeof order.user_email === 'string' ? order.user_email : order.user_email?.email || 'Unknown'
+              })) : []}
+              isLoading={ordersLoading}
+              onUpdateStatus={updateOrderStatus}
+            />
+          )}
+        </>
       )}
 
       {activeTab === 'categories' && (
@@ -271,20 +425,24 @@ export default function AdminDashboard() {
           >
             <Text style={styles.buttonText}>Create New Category</Text>
           </TouchableOpacity>
-          <CategoryList
-            categories={filteredCategories || []}
-            isLoading={categoriesLoading}
-            onEdit={(category) => {
-              setSelectedCategory(category);
-              setCategoryFormData({
-                name: category.name,
-                slug: category.slug,
-                imageUrl: category.imageUrl,
-              });
-              setIsCategoryModalVisible(true);
-            }}
-            onDelete={handleDeleteCategory}
-          />
+          {categoriesLoading ? (
+            <CategoryListSkeleton />
+          ) : (
+            <CategoryList
+              categories={filteredCategories || []}
+              isLoading={categoriesLoading}
+              onEdit={(category) => {
+                setSelectedCategory(category);
+                setCategoryFormData({
+                  name: category.name || '',
+                  slug: category.slug,
+                  imageurl: category.imageurl,
+                });
+                setIsCategoryModalVisible(true);
+              }}
+              onDelete={handleDeleteCategory}
+            />
+          )}
         </View>
       )}
 

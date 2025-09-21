@@ -12,7 +12,7 @@ export const useAdminCategories = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('category')
-        .select('*')
+        .select('id, name, slug, imageurl, products, created_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -20,8 +20,8 @@ export const useAdminCategories = () => {
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 30,   // 30 minutes
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // Don't refetch if data is fresh
   });
 
   const createCategoryMutation = useMutation({

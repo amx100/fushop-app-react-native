@@ -1,17 +1,27 @@
+export type ProductStatus = 'available' | 'out_of_stock';
+
 export type Product = {
   id: number;
   title: string;
   price: number;
-  heroImage: string;
+  heroimage: string;
   category: number;
   slug: string;
-  imagesUrl: string[];
+  imagesurl: string[];
   sizes?: ProductSize[];
+  status: ProductStatus;
 }
 
-export type ProductFormData = Omit<Product, 'id'> & {
+export interface ProductFormData {
+  title: string;
+  slug?: string;
+  price: number;
+  heroImage: string;
+  category: number | null;
+  imagesUrl?: string[];
   sizes?: ProductSize[];
-};
+  status?: 'available' | 'out_of_stock';
+}
 
 export type OrderStatus = 'Pending' | 'Completed' | 'Shipped' | 'InTransit';
 
@@ -45,13 +55,16 @@ export type OrderItem = {
 
 export type Category = {
   id: number;
-  name: string;
+  name: string | null;
   slug: string;
-  imageUrl: string;
+  imageurl: string;
   products: number[] | null;
+  created_at: string;
 };
 
-export type CategoryFormData = Omit<Category, 'id' | 'products'>;
+export type CategoryFormData = Omit<Category, 'id' | 'products' | 'created_at'> & {
+  name: string; // Form data should have non-null name
+};
 
 export type SizeType = 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 

@@ -23,11 +23,11 @@ export function CategoryList({ categories, isLoading, onEdit, onDelete }: Catego
       {categories.map((category) => (
         <View key={category.id} style={styles.categoryItem}>
           <Image 
-            source={{ uri: category.imageUrl }} 
+            source={{ uri: category.imageurl || 'https://via.placeholder.com/50x50/cccccc/666666?text=No+Image' }} 
             style={styles.categoryImage} 
           />
           <View style={styles.categoryInfo}>
-            <Text style={styles.categoryName}>{category.name}</Text>
+            <Text style={styles.categoryName}>{category.name || 'Unnamed Category'}</Text>
             <Text style={styles.categorySlug}>{category.slug}</Text>
           </View>
           <View style={styles.actions}>

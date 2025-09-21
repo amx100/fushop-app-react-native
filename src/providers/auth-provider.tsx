@@ -8,10 +8,12 @@ import {
 } from 'react';
 import { supabase } from '../lib/supabase';
 import { Alert } from 'react-native';
+import { router, usePathname } from 'expo-router';
 
 type AuthData = {
   session: Session | null;
   isLoading: boolean;
+  mounting: boolean;
   user: any;
   signOut: () => Promise<void>;
 };
@@ -19,6 +21,7 @@ type AuthData = {
 const AuthContext = createContext<AuthData>({
   session: null,
   isLoading: true,
+  mounting: true,
   user: null,
   signOut: async () => {},
 });
@@ -26,15 +29,22 @@ const AuthContext = createContext<AuthData>({
 export default function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<{
-    avatar_url: string;
-    created_at: string | null;
-    email: string;
-    expo_notification_token: string | null;
     id: string;
+    email: string;
+    name: string | null;
+    last_name: string | null;
+    phone: string | null;
+    address: string | null;
+    city: string | null;
+    country: string | null;
+    postal_code: string | null;
     stripe_customer_id: string | null;
     type: string | null;
+    expo_notification_token: string | null;
+    created_at: string;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const pathname = usePathname();
 
   const fetchUserData = async (userId: string) => {
     try {
@@ -108,7 +118,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     // Set up auth state change subscription
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        console.log('Auth state changed:', event, 'Session:', currentSession?.user?.id);
+      
         
         if (mounted) {
           setSession(currentSession);
@@ -129,8 +139,18 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  // Auto-redirect admin users when user data is loaded
+  useEffect(() => {
+    if (user && user.type === 'admin' && session && !isLoading) {
+      // Only redirect if not already on admin or auth page
+      if (!pathname.includes('/admin') && !pathname.includes('/auth')) {
+        router.replace('/admin');
+      }
+    }
+  }, [user, session, isLoading, pathname]);
+
   return (
-    <AuthContext.Provider value={{ session, isLoading, user, signOut }}>
+    <AuthContext.Provider value={{ session, isLoading, mounting: isLoading, user, signOut }}>
       {children}
     </AuthContext.Provider>
   );

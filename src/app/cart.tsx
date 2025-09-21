@@ -32,7 +32,7 @@ const CartItemComponent = ({
 
   return (
     <View style={styles.cartItem}>
-      <Image source={{ uri: item.heroImage }} style={styles.itemImage} />
+      <Image source={{ uri: item.heroImage || 'https://via.placeholder.com/80x80/cccccc/666666?text=No+Image' }} style={styles.itemImage} />
       <View style={styles.itemDetails}>
         <Text style={styles.itemTitle}>{item.title}</Text>
         <Text style={styles.itemPrice}>${(item.price || 0).toFixed(2)}</Text>

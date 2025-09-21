@@ -22,10 +22,11 @@ export function useAdminProducts() {
           title,
           slug,
           price,
-          heroImage,
+          heroimage,
           category,
-          imagesUrl,
+          imagesurl,
           created_at,
+          status,
           product_size:product_size(
             id,
             quantity,
@@ -33,26 +34,28 @@ export function useAdminProducts() {
             sizes:sizes(value)
           )
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50); // Limit initial load to 50 products
 
       if (productsError) throw productsError;
 
-      return productsData.map(product => ({
+      return productsData?.map((product: any) => ({
         ...product,
-        sizes: product.product_size.map((ps: any) => ({
+        sizes: product.product_size?.map((ps: any) => ({
           ...ps,
-          size: ps.sizes.value
-        }))
-      }));
+          size: ps.sizes?.value || 'Unknown'
+        })) || []
+      })) || [];
     },
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30,   // 30 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // Don't refetch if data is fresh
   });
 
   const uploadImage = async (uri: string) => {
     if (!uri?.startsWith('file://')) {
+ 
       return null;
     }
 
@@ -60,23 +63,34 @@ export function useAdminProducts() {
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
       });
-      const filePath = `${randomUUID()}.png`;
+      
+      // Generate a truly unique file path each time
+      const filePath = `product-images/${Date.now()}-${randomUUID()}.png`;
       const contentType = 'image/png';
 
       const { data, error } = await supabase.storage
         .from('app-images')
-        .upload(filePath, decode(base64), { contentType });
+        .upload(filePath, decode(base64), { 
+          contentType,
+          upsert: true  // Allow overwriting existing files
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase upload error:', error);
+        throw error;
+      }
 
       if (data) {
         const { data: { publicUrl } } = supabase.storage
           .from('app-images')
           .getPublicUrl(data.path);
+        
+     
         return publicUrl;
       }
     } catch (error) {
-   
+      console.error('Image upload error:', error);
+      Toast.show('Failed to upload image', { type: 'error' });
       return null;
     }
   };
@@ -86,25 +100,41 @@ export function useAdminProducts() {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         alert('Camera roll permissions are required!');
-        return;
+        return null;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 1,
       });
 
-      if (!result.canceled) {
-        const uploadedUrl = await uploadImage(result.assets[0].uri);
+     
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+      
+
+        // Force a new upload each time by generating a unique file path
+        const uploadedUrl = await uploadImage(uri);
         if (uploadedUrl) {
-          setTempImageUrl(uploadedUrl);
+          // Clear previous temp URL first
+          setTempImageUrl('');
+          
+          // Short timeout to ensure state update
+          setTimeout(() => {
+            setTempImageUrl(uploadedUrl);
+          }, 50);
+
           Toast.show('Image uploaded successfully', { type: 'success' });
           return uploadedUrl;
+        } else {
+          Toast.show('Failed to upload image', { type: 'error' });
         }
       }
     } catch (error: any) {
+      console.error('Image picking error:', error);
       alert('Error picking image: ' + error.message);
     }
     return null;
@@ -145,16 +175,24 @@ export function useAdminProducts() {
         };
       }) || [];
 
+      // Set initial status based on sizes
+      const initialStatus = mappedSizes.some(size => size.quantity > 0) 
+        ? 'available' 
+        : 'out_of_stock';
+
+      const insertData = {
+        title: formData.title,
+        slug: formData.slug,
+        price: formData.price,
+        heroimage: formData.heroImage,
+        category: formData.category || undefined,
+        imagesurl: formData.imagesUrl || [],
+        status: initialStatus
+      };
+
       const { data: productData, error: productError } = await supabase
         .from('product')
-        .insert({
-          title: formData.title,
-          slug: formData.slug,
-          price: formData.price,
-          heroImage: formData.heroImage,
-          category: formData.category,
-          imagesUrl: formData.imagesUrl || []
-        })
+        .insert(insertData as any)
         .select()
         .single();
 
@@ -220,16 +258,24 @@ export function useAdminProducts() {
         };
       }) || [];
 
+      // Determine status based on sizes
+      const initialStatus = mappedSizes.some(size => size.quantity > 0) 
+        ? 'available' 
+        : 'out_of_stock';
+
+      const updateData = {
+        title: formData.title,
+        slug: formData.slug,
+        price: formData.price,
+        heroimage: formData.heroImage,
+        category: formData.category || undefined,
+        imagesurl: formData.imagesUrl || [],
+        status: initialStatus
+      };
+
       const { error: productError } = await supabase
         .from('product')
-        .update({
-          title: formData.title,
-          slug: formData.slug,
-          price: formData.price,
-          heroImage: formData.heroImage,
-          category: formData.category,
-          imagesUrl: formData.imagesUrl || []
-        })
+        .update(updateData as any)
         .eq('id', id);
 
       if (productError) throw productError;
@@ -294,17 +340,77 @@ export function useAdminProducts() {
 
   const decrementSizeQuantity = async (productId: number, size: SizeType, quantity: number) => {
     try {
-      const { error } = await supabase.rpc('decrement_size_quantity', {
-        p_product_id: productId,
-        p_size: size,
-        p_quantity: quantity
-      });
+      // First, find the size_id for this size value
+      const { data: sizeData, error: sizeError } = await supabase
+        .from('sizes')
+        .select('id')
+        .eq('value', size)
+        .single();
 
-      if (error) throw error;
+      if (sizeError || !sizeData) {
+        throw new Error(`Size "${size}" not found`);
+      }
+
+      // Get current quantity
+      const { data: currentSizeData, error: fetchError } = await supabase
+        .from('product_size')
+        .select('quantity')
+        .eq('product_id', productId)
+        .eq('size_id', sizeData.id)
+        .single();
+
+      if (fetchError) {
+        throw new Error(`Error fetching current quantity: ${fetchError.message}`);
+      }
+
+      // Calculate new quantity (don't go below 0)
+      const newQuantity = Math.max(0, (currentSizeData.quantity || 0) - quantity);
+
+      // Update the quantity
+      const { error: updateError } = await supabase
+        .from('product_size')
+        .update({ quantity: newQuantity })
+        .eq('product_id', productId)
+        .eq('size_id', sizeData.id);
+
+      if (updateError) throw updateError;
+
+      // Then, check and update product status
+      await updateProductStatus(productId);
       
+      // Invalidate queries to refresh data
       await queryClient.invalidateQueries({ queryKey: ['admin-products'] });
     } catch (error) {
       throw new Error('Error updating product quantity: ' + (error as Error).message);
+    }
+  };
+
+  // New function to update product status based on size quantities
+  const updateProductStatus = async (productId: number) => {
+    try {
+      // Fetch the current product sizes
+      const { data: productSizes, error: sizesError } = await supabase
+        .from('product_size')
+        .select('quantity')
+        .eq('product_id', productId);
+
+      if (sizesError) throw sizesError;
+
+      // Calculate total quantity across all sizes
+      const totalQuantity = productSizes.reduce((sum, size) => sum + size.quantity, 0);
+
+      // Update product status
+      const { error: updateError } = await supabase
+        .from('product')
+        .update({ 
+          status: totalQuantity > 0 ? 'available' : 'out_of_stock' 
+        })
+        .eq('id', productId);
+
+      if (updateError) throw updateError;
+    } catch (error) {
+      console.error('Error updating product status:', error);
+      throw error;
     }
   };
 
@@ -317,5 +423,6 @@ export function useAdminProducts() {
     pickImage,
     tempImageUrl,
     decrementSizeQuantity,
+    updateProductStatus,  // Expose this method if needed
   };
 } 

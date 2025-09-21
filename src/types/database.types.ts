@@ -9,28 +9,80 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      cart_items: {
+        Row: {
+          id: number
+          user_id: string
+          product_id: number
+          size_id: number
+          quantity: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          product_id: number
+          size_id: number
+          quantity?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          product_id?: number
+          size_id?: number
+          quantity?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_items_size_id_fkey"
+            columns: ["size_id"]
+            isOneToOne: false
+            referencedRelation: "sizes"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       category: {
         Row: {
           created_at: string
           id: number
-          imageUrl: string
-          name: string
+          imageurl: string
+          name: string | null
           products: number[] | null
           slug: string
         }
         Insert: {
           created_at?: string
           id?: number
-          imageUrl: string
-          name: string
+          imageurl: string
+          name?: string | null
           products?: number[] | null
           slug: string
         }
         Update: {
           created_at?: string
           id?: number
-          imageUrl?: string
-          name?: string
+          imageurl?: string
+          name?: string | null
           products?: number[] | null
           slug?: string
         }
@@ -43,17 +95,21 @@ export type Database = {
           id: number
           slug: string
           status: string
-          totalPrice: number
-          user: string
+          totalprice: number
+          user_id: string
+          shipping_id: number | null
+          shipping_price: number | null
         }
         Insert: {
           created_at?: string
           description?: string | null
           id?: number
-          slug: string
-          status: string
-          totalPrice: number
-          user: string
+          slug?: string
+          status?: string
+          totalprice: number
+          user_id: string
+          shipping_id?: number | null
+          shipping_price?: number | null
         }
         Update: {
           created_at?: string
@@ -61,15 +117,24 @@ export type Database = {
           id?: number
           slug?: string
           status?: string
-          totalPrice?: number
-          user?: string
+          totalprice?: number
+          user_id?: string
+          shipping_id?: number | null
+          shipping_price?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "order_user_fkey"
-            columns: ["user"]
+            foreignKeyName: "order_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_shipping_id_fkey"
+            columns: ["shipping_id"]
+            isOneToOne: false
+            referencedRelation: "shipping_options"
             referencedColumns: ["id"]
           },
         ]
@@ -78,34 +143,37 @@ export type Database = {
         Row: {
           created_at: string
           id: number
-          order: number
+          order_id: number
           product: number
+          product_id: number | null
           quantity: number
-          size: string
-          size_id: number
+          size: string | null
+          size_id: number | null
         }
         Insert: {
           created_at?: string
           id?: number
-          order: number
+          order_id: number
           product: number
+          product_id?: number | null
           quantity: number
-          size: string
-          size_id: number
+          size?: string | null
+          size_id?: number | null
         }
         Update: {
           created_at?: string
           id?: number
-          order?: number
+          order_id?: number
           product?: number
+          product_id?: number | null
           quantity?: number
-          size?: string
-          size_id?: number
+          size?: string | null
+          size_id?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "order_item_order_fkey"
-            columns: ["order"]
+            foreignKeyName: "order_item_order_id_fkey"
+            columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "order"
             referencedColumns: ["id"]
@@ -128,34 +196,43 @@ export type Database = {
       }
       product: {
         Row: {
+          status: string | null
           category: number
           created_at: string
-          heroImage: string
+          heroimage: string
           id: number
-          imagesUrl: string[]
+          imagesurl: string[]
           price: number
           slug: string
           title: string
+          description: string | null
+          supplier: string | null
         }
         Insert: {
           category: number
           created_at?: string
-          heroImage: string
+          heroimage: string
           id?: number
-          imagesUrl: string[]
+          imagesurl: string[]
           price: number
           slug: string
           title: string
+          status?: string | null
+          description?: string | null
+          supplier?: string | null
         }
         Update: {
           category?: number
           created_at?: string
-          heroImage?: string
+          heroimage?: string
           id?: number
-          imagesUrl?: string[]
+          imagesurl?: string[]
           price?: number
           slug?: string
           title?: string
+          status?: string | null
+          description?: string | null
+          supplier?: string | null
         }
         Relationships: [
           {
@@ -208,31 +285,49 @@ export type Database = {
       }
       users: {
         Row: {
-          avatar_url: string
-          created_at: string | null
-          email: string
-          expo_notification_token: string | null
           id: string
+          email: string
+          name: string | null
+          last_name: string | null
+          phone: string | null
+          address: string | null
+          city: string | null
+          country: string | null
+          postal_code: string | null
           stripe_customer_id: string | null
           type: string | null
+          expo_notification_token: string | null
+          created_at: string
         }
         Insert: {
-          avatar_url: string
-          created_at?: string | null
+          id?: string
           email: string
-          expo_notification_token?: string | null
-          id: string
+          name?: string | null
+          last_name?: string | null
+          phone?: string | null
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          postal_code?: string | null
           stripe_customer_id?: string | null
           type?: string | null
+          expo_notification_token?: string | null
+          created_at?: string
         }
         Update: {
-          avatar_url?: string
-          created_at?: string | null
-          email?: string
-          expo_notification_token?: string | null
           id?: string
+          email?: string
+          name?: string | null
+          last_name?: string | null
+          phone?: string | null
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          postal_code?: string | null
           stripe_customer_id?: string | null
           type?: string | null
+          expo_notification_token?: string | null
+          created_at?: string
         }
         Relationships: [
           {
@@ -244,35 +339,88 @@ export type Database = {
           },
         ]
       }
+      shipping_options: {
+        Row: {
+          id: number
+          name: string
+          price: number
+          description: string | null
+          delivery_time_min: number | null
+          delivery_time_max: number | null
+          is_active: boolean | null
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: number
+          name: string
+          price: number
+          description?: string | null
+          delivery_time_min?: number | null
+          delivery_time_max?: number | null
+          is_active?: boolean | null
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: number
+          name?: string
+          price?: number
+          description?: string | null
+          delivery_time_min?: number | null
+          delivery_time_max?: number | null
+          is_active?: boolean | null
+          created_at?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       sizes: {
         Row: {
           id: number;
           value: string;
+          display_order: number | null;
           created_at: string;
         };
         Insert: {
           id?: number;
           value: string;
+          display_order?: number | null;
           created_at?: string;
         };
         Update: {
           id?: number;
           value?: string;
+          display_order?: number | null;
           created_at?: string;
         };
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      decrement_size_quantity: {
+      decrement_product_quantity: {
         Args: {
           p_product_id: number
-          p_size_id: number
           p_quantity: number
         }
         Returns: undefined
+      }
+      check_inventory_for_order: {
+        Args: {
+          order_id: number
+        }
+        Returns: {
+          product_id: number
+          product_title: string
+          size_id: number
+          size_value: string
+          ordered_quantity: number
+          available_quantity: number
+          is_sufficient: boolean
+        }[]
       }
     }
     Enums: {

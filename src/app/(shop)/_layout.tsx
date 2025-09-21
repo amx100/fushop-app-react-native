@@ -1,4 +1,4 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
@@ -12,11 +12,11 @@ function TabBarIcon(props: {
 }) {
   return <FontAwesome size={24} {...props} style={{ color: '#fb9b3c' }} />;
 }
-const TabsLayout = () => {
-  const { session, isLoading } = useAuth();
 
-  if (isLoading) return <ActivityIndicator />;
-  if (!session) return <Redirect href='/auth' />;
+const TabsLayout = () => {
+  const { session, isLoading: authLoading } = useAuth();
+
+  if (authLoading) return <ActivityIndicator />;
 
   return (
     <CartProvider>

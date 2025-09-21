@@ -1,3 +1,6 @@
+// Import polyfills first, before any other imports
+import '../../polyfills';
+
 import { Stack } from 'expo-router';
 import { ToastProvider } from 'react-native-toast-notifications';
 import AuthProvider from '../providers/auth-provider';

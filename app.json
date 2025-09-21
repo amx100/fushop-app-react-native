@@ -1,52 +1,61 @@
 {
   "expo": {
-    "name": "rn-shop",
-    "scheme": "rn-shop",
-    "slug": "rn-shop",
+    "name": "united",
+    "scheme": "united",
+    "slug": "united",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
-      "newArchEnabled": true
+      "newArchEnabled": true,
+      "bundleIdentifier": "com.amx100.united"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "newArchEnabled": true
+      "newArchEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "package": "com.amx100.united"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/nnc-min.ico"
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       [
-        "expo-image-picker",
+        "expo-notifications",
         {
-          "photosPermission": "The app needs access to your photos to let you upload product images."
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#ffffff"
         }
       ]
     ],
+    "nodeModulesPath": "./node_modules",
     "extra": {
       "router": {
         "origin": false
       },
       "eas": {
-        "projectId": "75342980-e70d-47f8-988a-f5d95f39add5"
+        "projectId": "6d3ad863-6cf3-4d84-a99e-66cbe96d52ef"
       }
     },
     "experiments": {
       "tsconfigPaths": true,
       "newArchEnabled": true
-    }
+    },
+    "owner": "amx100"
   }
 }

@@ -1,3 +1,4 @@
+import React, { useState, useEffect, memo } from 'react';
 import { 
   ActivityIndicator,   
   FlatList,   
@@ -9,9 +10,8 @@ import {
 } from 'react-native';  
 import { ProductListItem } from '../../components/product-list-item'; 
 import { ListHeader } from '../../components/list-header'; 
-import { getProductsAndCategories } from '../../api/api'; 
-import { Product } from '../../types'; 
-import { useState, useCallback, memo } from 'react';
+import { supabase } from '../../lib/supabase';
+import { Tables } from '../../types/database.types';
 import { Ionicons } from '@expo/vector-icons';
 
 // Izdvajamo SearchHeader kao zasebnu memo komponentu
@@ -44,65 +44,129 @@ const SearchHeader = memo(({
   </View>
 ));
 
-const Home = () => {   
-  const { data, error, isLoading } = getProductsAndCategories();   
+export default function ShopIndex() {
+  const [products, setProducts] = useState<Tables<'product'>[]>([]);
+  const [categories, setCategories] = useState<Tables<'category'>[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredProducts = data?.products?.filter((product) => 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+     
+        setIsLoading(true);
+        
+        // Fetch categories
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from('category')
+          .select('id, name, slug, imageurl, products, created_at');
+        
+     
+        
+        if (categoriesError) throw categoriesError;
+        
+        // Fetch products - remove status filter temporarily
+        const { data: productsData, error: productsError } = await supabase
+          .from('product')
+          .select('*');
+        
+      
+        
+        if (productsError) throw productsError;
+        
+        setCategories(categoriesData || []);
+        setProducts(productsData || []);
+      } catch (err: any) {
+        console.error('FULL Error fetching data:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const filteredProducts = products?.filter((product) => 
     searchQuery.trim() === '' || (
       product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.slug.toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
 
-  const handleSearchChange = useCallback((text: string) => {
+  const handleSearchChange = (text: string) => {
     setSearchQuery(text);
-  }, []);
+  };
 
-  if (isLoading) return <ActivityIndicator />;    
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+    );
+  }
 
-  if (error || !data)     
-    return <Text>Error {error?.message || 'An error occurred'}</Text>;    
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Error loading products: {error}</Text>
+      </View>
+    );
+  }
 
-  return (     
-    <View style={styles.container}>       
-      <FlatList         
-        data={filteredProducts || []}         
-        renderItem={({ item }) => <ProductListItem product={item} />}         
-        keyExtractor={item => item.id.toString()}         
-        numColumns={2}         
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={filteredProducts || []}
+        renderItem={({ item }) => <ProductListItem product={item} />}
+        keyExtractor={(item) => item.id.toString()}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
         ListHeaderComponent={
           <SearchHeader 
-            categories={data.categories} 
+            categories={categories} 
             searchQuery={searchQuery}
             onSearchChange={handleSearchChange}
           />
-        }         
-        contentContainerStyle={styles.flatListContent}         
-        columnWrapperStyle={styles.flatListColumn}         
-        style={{ paddingHorizontal: 10, paddingVertical: 5 }}         
-        ListEmptyComponent={() => (           
-          <Text style={styles.noProducts}>             
-            {searchQuery ? 'No products found matching your search' : 'No products available'}           
-          </Text>         
+        }
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={() => (
+          <Text style={styles.noProducts}>
+            {searchQuery ? 'No products found matching your search' : 'No products available'}
+          </Text>
         )}
-        removeClippedSubviews={false} // Ovo će pomoći da se tastatura ne zatvara
-      />     
-    </View>   
-  ); 
-};
-
-export default Home;
+        removeClippedSubviews={false}
+      />
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'white',
   },
-  flatListContent: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+  },
+  listContainer: {
+    paddingHorizontal: 10,
     paddingBottom: 20,
   },
-  flatListColumn: {
+  row: {
     justifyContent: 'space-between',
   },
   searchContainer: {

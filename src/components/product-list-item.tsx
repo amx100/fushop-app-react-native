@@ -15,27 +15,49 @@ interface ProductListItemProps {
 }
 
 const ProductListItemComponent = ({ product }: ProductListItemProps) => {
+  const isOutOfStock = product.status === 'out_of_stock';
+
   return (
     <Link asChild href={`/product/${product.slug}`}>
       <Pressable style={styles.item}>
         <View style={styles.itemImageContainer}>
           <Image 
             source={{ 
-              uri: product.heroImage,
+              uri: product.heroimage || 'https://via.placeholder.com/300x400/cccccc/666666?text=No+Image',
               cache: 'force-cache' // Basic caching on supported platforms
             }} 
-            style={styles.itemImage}
+            style={[
+              styles.itemImage,
+              isOutOfStock && styles.outOfStockImage
+            ]}
           />
+          {isOutOfStock && (
+            <View style={styles.outOfStockOverlay}>
+              <Text style={styles.outOfStockText}>Nema na stanju</Text>
+            </View>
+          )}
           <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.05)']}
             style={styles.imageOverlay}
           />
         </View>
         <View style={styles.itemTextContainer}>
-          <Text numberOfLines={2} style={styles.itemPrice}>
+          <Text 
+            numberOfLines={2} 
+            style={[
+              styles.itemPrice, 
+              isOutOfStock && styles.outOfStockPrice
+            ]}
+          >
             {product.price.toFixed(2)} RSD
           </Text>
-          <Text numberOfLines={2} style={styles.itemTitle}>
+          <Text 
+            numberOfLines={2} 
+            style={[
+              styles.itemTitle, 
+              isOutOfStock && styles.outOfStockTitle
+            ]}
+          >
             {product.title}
           </Text>
         </View>
@@ -48,9 +70,10 @@ function areEqual(prevProps: ProductListItemProps, nextProps: ProductListItemPro
   return (
     prevProps.product.id === nextProps.product.id &&
     prevProps.product.slug === nextProps.product.slug &&
-    prevProps.product.heroImage === nextProps.product.heroImage &&
+    prevProps.product.heroimage === nextProps.product.heroimage &&
     prevProps.product.price === nextProps.product.price &&
-    prevProps.product.title === nextProps.product.title
+    prevProps.product.title === nextProps.product.title &&
+    prevProps.product.status === nextProps.product.status
   );
 }
 
@@ -72,6 +95,29 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  outOfStockImage: {
+    opacity: 0.5,
+  },
+  outOfStockOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(255,0,0,0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  outOfStockText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  outOfStockPrice: {
+    color: '#999',
+  },
+  outOfStockTitle: {
+    color: '#999',
   },
   imageOverlay: {
     position: 'absolute',

@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import {
   FlatList,
   Image,
@@ -13,6 +13,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useCartStore } from '../store/cart-store';
 import { supabase } from '../lib/supabase';
 import { Tables } from '../types/database.types';
+import { useAuth } from '../providers/auth-provider';
 
 export const ListHeader = ({
   categories,
@@ -20,9 +21,19 @@ export const ListHeader = ({
   categories: Tables<'category'>[];
 }) => {
   const { getItemCount } = useCartStore();
+  const { session } = useAuth();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+      router.replace('/auth'); // Redirect to auth page after sign out
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
+  const handleSignIn = () => {
+    router.push('/auth');
   };
 
   return (
@@ -31,10 +42,10 @@ export const ListHeader = ({
         <View style={styles.headerLeft}>
           <View style={styles.avatarContainer}>
             <Image
-              source={{ uri: 'https://via.placeholder.com/40' }}
+              source={{ uri: 'https://www.vhv.rs/dpng/d/550-5508649_person-image-placeholder-clipart-png-download-no-profile.png' }}
               style={styles.avatarImage}
             />
-            <Text style={styles.avatarText}>Fashion United 100</Text>
+           
           </View>
         </View>
         <View style={styles.headerRight}>
@@ -56,12 +67,21 @@ export const ListHeader = ({
               )}
             </Pressable>
           </Link>
-          <TouchableOpacity
-            onPress={handleSignOut}
-            style={styles.signOutButton}
-          >
-            <FontAwesome name='sign-out' size={25} color='#eb620b' />
-          </TouchableOpacity>
+          {session ? (
+            <TouchableOpacity
+              onPress={handleSignOut}
+              style={styles.authButton}
+            >
+              <Text style={styles.authButtonText}>Odjavite se</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleSignIn}
+              style={styles.authButton}
+            >
+              <Text style={styles.authButtonText}>Prijavite se</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
       <View style={styles.heroContainer}>
@@ -80,14 +100,14 @@ export const ListHeader = ({
             <Link asChild href={`/categories/${item.slug}`}>
               <Pressable style={styles.category}>
                 <Image
-                  source={{ uri: item.imageUrl }}
+                  source={{ uri: item.imageurl || 'https://via.placeholder.com/80x120/cccccc/666666?text=No+Image' }}
                   style={styles.categoryImage}
                 />
-                <Text style={styles.categoryText}>{item.name}</Text>
+                <Text style={styles.categoryText}>{item.name || 'Category'}</Text>
               </Pressable>
             </Link>
           )}
-          keyExtractor={item => item.name}
+          keyExtractor={item => item.name || item.id.toString()}
           horizontal
           showsHorizontalScrollIndicator={false}
         />
@@ -114,6 +134,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarContainer: {
+    paddingTop:10,
+    paddingLeft:5,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
@@ -130,8 +152,18 @@ const styles = StyleSheet.create({
   cartContainer: {
     padding: 10,
   },
-  signOutButton: {
-    padding: 10,
+  authButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#333',
+    backgroundColor: 'transparent',
+  },
+  authButtonText: {
+    color: '#333',
+    fontWeight: '600',
+    fontSize: 14,
   },
   heroContainer: {
     width: '100%',

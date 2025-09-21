@@ -59,7 +59,7 @@ export default function MorphismAuthScreen() {
           if (userError) throw userError;
 
           // Redirect based on user type
-          if (userData?.type === 'ADMIN') {
+          if (userData?.type === 'admin') {
             router.replace('/admin');
           } else {
             router.replace('/(shop)');
