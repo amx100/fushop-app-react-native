@@ -4,10 +4,10 @@ export type Product = {
   id: number;
   title: string;
   price: number;
-  heroImage: string;
+  heroimage: string;
   category: number;
   slug: string;
-  imagesUrl: string[];
+  imagesurl: string[];
   sizes?: ProductSize[];
   status: ProductStatus;
 }
@@ -55,13 +55,16 @@ export type OrderItem = {
 
 export type Category = {
   id: number;
-  name: string;
+  name: string | null;
   slug: string;
-  imageUrl: string;
+  imageurl: string;
   products: number[] | null;
+  created_at: string;
 };
 
-export type CategoryFormData = Omit<Category, 'id' | 'products'>;
+export type CategoryFormData = Omit<Category, 'id' | 'products' | 'created_at'> & {
+  name: string; // Form data should have non-null name
+};
 
 export type SizeType = 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
 

@@ -9,7 +9,29 @@ import {
 } from 'react-native';
 
 import { getMyOrder } from '../../../api/api';
-import { format } from 'date-fns';
+// Removed date-fns import due to React Native compatibility issues
+
+// Safe date formatting function
+const formatDate = (dateString: string): string => {
+  try {
+    if (!dateString) return 'Unknown date';
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    const month = months[date.getMonth()];
+    const day = date.getDate().toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${month} ${day}, ${year}`;
+  } catch (error) {
+    console.error('Date formatting error:', error);
+    return 'Date error';
+  }
+};
 
 const OrderDetails = () => {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -20,14 +42,21 @@ const OrderDetails = () => {
 
   if (error) return <Text>Error: {error?.message}</Text>;
 
-  if (!order || !order.order_items) {
+  if (!order) {
     return <Text>No order details found.</Text>;
   }
 
-  const orderItems = order.order_items.map((orderItem: any) => ({
+  // Type assertion to handle Supabase query result
+  const orderData = order as any;
+  
+  if (!orderData.order_items || !Array.isArray(orderData.order_items)) {
+    return <Text>No order items found.</Text>;
+  }
+
+  const orderItems = orderData.order_items.map((orderItem: any) => ({
     id: orderItem.id,
     title: orderItem.products?.title || 'Unknown product',
-    heroImage: orderItem.products?.heroImage || '',
+    heroImage: orderItem.products?.heroimage || '',
     price: orderItem.products?.price || 0,
     quantity: orderItem.quantity || 0,
     size: orderItem.size || 'Unknown size',
@@ -35,14 +64,14 @@ const OrderDetails = () => {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: `#${order.id} ${order.slug}` }} />
+      <Stack.Screen options={{ title: `#${orderData.id} ${orderData.slug}` }} />
 
   
       {<Text style={styles.date}>
-        {format(new Date(order.created_at), 'MMM dd, yyyy')}
+        {formatDate(orderData.created_at)}
       </Text>}
-      <View style={[styles.statusBadge, styles[`statusBadge_${order.status}`]]}>
-        <Text style={styles.statusText}>{order.status}</Text>
+      <View style={[styles.statusBadge, styles[`statusBadge_${orderData.status}`]]}>
+        <Text style={styles.statusText}>{orderData.status}</Text>
       </View>
       
   
@@ -52,11 +81,10 @@ const OrderDetails = () => {
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.orderItem}>
-            {item.heroImage ? (
-              <Image source={{ uri: item.heroImage }} style={styles.heroImage} />
-            ) : (
-              <Text>No image available</Text>
-            )}
+            <Image 
+              source={{ uri: item.heroImage || 'https://via.placeholder.com/100x100/cccccc/666666?text=No+Image' }} 
+              style={styles.heroImage} 
+            />
             <View style={styles.itemInfo}>
               <Text style={styles.itemName}>{item.title}</Text>
               <Text style={styles.itemQuantity}>Quantity: {item.quantity}</Text>

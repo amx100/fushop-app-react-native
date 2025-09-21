@@ -22,9 +22,9 @@ export function useAdminProducts() {
           title,
           slug,
           price,
-          heroImage,
+          heroimage,
           category,
-          imagesUrl,
+          imagesurl,
           created_at,
           status,
           product_size:product_size(
@@ -34,27 +34,28 @@ export function useAdminProducts() {
             sizes:sizes(value)
           )
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50); // Limit initial load to 50 products
 
       if (productsError) throw productsError;
 
-      return productsData.map(product => ({
+      return productsData?.map((product: any) => ({
         ...product,
-        sizes: product.product_size.map((ps: any) => ({
+        sizes: product.product_size?.map((ps: any) => ({
           ...ps,
-          size: ps.sizes.value
-        }))
-      }));
+          size: ps.sizes?.value || 'Unknown'
+        })) || []
+      })) || [];
     },
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30,   // 30 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // Don't refetch if data is fresh
   });
 
   const uploadImage = async (uri: string) => {
     if (!uri?.startsWith('file://')) {
-      console.log('Invalid URI: ', uri);
+ 
       return null;
     }
 
@@ -84,7 +85,7 @@ export function useAdminProducts() {
           .from('app-images')
           .getPublicUrl(data.path);
         
-        console.log('Uploaded image URL:', publicUrl);
+     
         return publicUrl;
       }
     } catch (error) {
@@ -109,11 +110,11 @@ export function useAdminProducts() {
         quality: 1,
       });
 
-      console.log('Image picker result:', result);
+     
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const uri = result.assets[0].uri;
-        console.log('Selected image URI:', uri);
+      
 
         // Force a new upload each time by generating a unique file path
         const uploadedUrl = await uploadImage(uri);
@@ -179,17 +180,19 @@ export function useAdminProducts() {
         ? 'available' 
         : 'out_of_stock';
 
+      const insertData = {
+        title: formData.title,
+        slug: formData.slug,
+        price: formData.price,
+        heroimage: formData.heroImage,
+        category: formData.category || undefined,
+        imagesurl: formData.imagesUrl || [],
+        status: initialStatus
+      };
+
       const { data: productData, error: productError } = await supabase
         .from('product')
-        .insert({
-          title: formData.title,
-          slug: formData.slug,
-          price: formData.price,
-          heroImage: formData.heroImage,
-          category: formData.category,
-          imagesUrl: formData.imagesUrl || [],
-          status: initialStatus  // Add status here
-        })
+        .insert(insertData as any)
         .select()
         .single();
 
@@ -260,17 +263,19 @@ export function useAdminProducts() {
         ? 'available' 
         : 'out_of_stock';
 
+      const updateData = {
+        title: formData.title,
+        slug: formData.slug,
+        price: formData.price,
+        heroimage: formData.heroImage,
+        category: formData.category || undefined,
+        imagesurl: formData.imagesUrl || [],
+        status: initialStatus
+      };
+
       const { error: productError } = await supabase
         .from('product')
-        .update({
-          title: formData.title,
-          slug: formData.slug,
-          price: formData.price,
-          heroImage: formData.heroImage,
-          category: formData.category,
-          imagesUrl: formData.imagesUrl || [],
-          status: initialStatus  // Update status here
-        })
+        .update(updateData as any)
         .eq('id', id);
 
       if (productError) throw productError;
@@ -335,14 +340,40 @@ export function useAdminProducts() {
 
   const decrementSizeQuantity = async (productId: number, size: SizeType, quantity: number) => {
     try {
-      // First, decrement the size quantity
-      const { error } = await supabase.rpc('decrement_size_quantity', {
-        p_product_id: productId,
-        p_size: size,
-        p_quantity: quantity
-      });
+      // First, find the size_id for this size value
+      const { data: sizeData, error: sizeError } = await supabase
+        .from('sizes')
+        .select('id')
+        .eq('value', size)
+        .single();
 
-      if (error) throw error;
+      if (sizeError || !sizeData) {
+        throw new Error(`Size "${size}" not found`);
+      }
+
+      // Get current quantity
+      const { data: currentSizeData, error: fetchError } = await supabase
+        .from('product_size')
+        .select('quantity')
+        .eq('product_id', productId)
+        .eq('size_id', sizeData.id)
+        .single();
+
+      if (fetchError) {
+        throw new Error(`Error fetching current quantity: ${fetchError.message}`);
+      }
+
+      // Calculate new quantity (don't go below 0)
+      const newQuantity = Math.max(0, (currentSizeData.quantity || 0) - quantity);
+
+      // Update the quantity
+      const { error: updateError } = await supabase
+        .from('product_size')
+        .update({ quantity: newQuantity })
+        .eq('product_id', productId)
+        .eq('size_id', sizeData.id);
+
+      if (updateError) throw updateError;
 
       // Then, check and update product status
       await updateProductStatus(productId);

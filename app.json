@@ -1,21 +1,21 @@
 {
   "expo": {
-    "name": "rn-shop",
-    "scheme": "rn-shop",
-    "slug": "rn-shop",
+    "name": "united",
+    "scheme": "united",
+    "slug": "united",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
       "newArchEnabled": true,
-      "bundleIdentifier": "com.amx100.rnshop"
+      "bundleIdentifier": "com.amx100.united"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,12 +24,13 @@
       },
       "newArchEnabled": true,
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
       ],
-      "package": "com.amx100.rnshop"
+      "package": "com.amx100.united"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/nnc-min.ico"
     },
     "plugins": [
       "expo-router",
@@ -37,23 +38,24 @@
       [
         "expo-notifications",
         {
-          "icon": "./local/path/to/notification/icon.png",
-          "color": "#ffffff",
-          "sounds": ["./local/path/to/notification/sound.wav"]
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#ffffff"
         }
       ]
     ],
+    "nodeModulesPath": "./node_modules",
     "extra": {
       "router": {
         "origin": false
       },
       "eas": {
-        "projectId": "c5bb88db-714f-49c6-b5aa-cf060368efc3"
+        "projectId": "6d3ad863-6cf3-4d84-a99e-66cbe96d52ef"
       }
     },
     "experiments": {
       "tsconfigPaths": true,
       "newArchEnabled": true
-    }
+    },
+    "owner": "amx100"
   }
 }

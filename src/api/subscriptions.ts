@@ -7,22 +7,36 @@ export const useOrderUpdateSubscription = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const subscriptionResponse = supabase
-      .channel('custom-update-channel')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'order' },
-        payload => {
-          console.log('Change received!', payload);
-          queryClient.invalidateQueries({
-            queryKey: ['orders'],
-          });
-        }
-      )
-      .subscribe();
+    let subscriptionResponse;
+    
+    try {
+      subscriptionResponse = supabase
+        .channel('custom-update-channel')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'order' },
+          payload => {
+          
+            queryClient.invalidateQueries({
+              queryKey: ['orders'],
+            });
+          }
+        )
+        .subscribe();
+    } catch (error) {
+      console.warn('Failed to set up realtime subscription:', error);
+      console.warn('Orders will still work, but real-time updates are disabled');
+      return () => {}; // Return empty cleanup function
+    }
 
     return () => {
-      subscriptionResponse.unsubscribe();
+      if (subscriptionResponse && typeof subscriptionResponse.unsubscribe === 'function') {
+        try {
+          subscriptionResponse.unsubscribe();
+        } catch (error) {
+          console.warn('Error unsubscribing from realtime:', error);
+        }
+      }
     };
-  }, []);
+  }, [queryClient]);
 };

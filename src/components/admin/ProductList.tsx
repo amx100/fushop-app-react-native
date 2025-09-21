@@ -1,8 +1,8 @@
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { Product } from '../../types';
 import RemoteImage from '../RemoteImage';
 import Icon from '@rneui/themed/dist/Icon';
-// ... import other necessary components
+import React, { memo, useCallback } from 'react';
 
 type ProductListProps = {
   products: Product[];
@@ -12,84 +12,148 @@ type ProductListProps = {
   onCreateNew: () => void;
 };
 
-export function ProductList({ products, isLoading, onEdit, onDelete, onCreateNew }: ProductListProps) {
-  return (
-    <ScrollView style={styles.productList}>
-    <TouchableOpacity 
-      style={styles.createButton}
-      onPress={onCreateNew}
-    >
-      <Text style={styles.buttonText}>Create New Product</Text>
-    </TouchableOpacity>
-
-    {isLoading ? (
-      <Text>Loading products...</Text>
-    ) : (
-      products?.map((product) => (
-        <View key={product.id} style={styles.productItem}>
-          <View style={styles.productHeader}>
-            {product.heroImage ? (
-              <RemoteImage 
-                path={product.heroImage}
-                fallback="https://placehold.co/80x80"
-                style={styles.productImage}
-              />
-            ) : (
-              <View style={styles.noImage}>
-                <Text style={styles.noImageText}>No Image</Text>
+// Memoized ProductItem component to prevent unnecessary re-renders
+const ProductItem = memo(({ 
+  product, 
+  onEdit, 
+  onDelete 
+}: { 
+  product: Product; 
+  onEdit: (product: Product) => void; 
+  onDelete: (id: number) => void; 
+}) => (
+  <View style={styles.productItem}>
+    <View style={styles.productHeader}>
+      {product.heroimage ? (
+        <RemoteImage 
+          path={product.heroimage}
+          fallback="https://placehold.co/80x80"
+          style={styles.productImage}
+        />
+      ) : (
+        <View style={styles.noImage}>
+          <Text style={styles.noImageText}>No Image</Text>
+        </View>
+      )}
+      <View style={styles.productInfo}>
+        <Text style={styles.productTitle}>{product.title}</Text>
+        <Text style={styles.productPrice}>Price: ${product.price}</Text>
+        
+        <View style={styles.sizesContainer}>
+          <Text style={styles.sizesTitle}>Available Sizes:</Text>
+          <View style={styles.sizesGrid}>
+            {product.sizes?.map((size) => (
+              <View key={size.id} style={styles.sizeItem}>
+                <Text style={styles.sizeText}>
+                  {size.size}: {size.quantity}
+                </Text>
               </View>
-            )}
-            <View style={styles.productInfo}>
-              <Text style={styles.productTitle}>{product.title}</Text>
-              <Text style={styles.productPrice}>Price: ${product.price}</Text>
-              
-              <View style={styles.sizesContainer}>
-                <Text style={styles.sizesTitle}>Available Sizes:</Text>
-                <View style={styles.sizesGrid}>
-                  {product.sizes?.map((size) => (
-                    <View key={size.id} style={styles.sizeItem}>
-                      <Text style={styles.sizeText}>
-                        {size.size}: {size.quantity}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-          </View>
-          <View style={styles.productStatusContainer}>
-            <Text style={styles.productStatusLabel}>Status:</Text>
-            <View 
-              style={[
-                styles.productStatusBadge, 
-                product.status === 'available' 
-                  ? styles.availableStatus 
-                  : styles.outOfStockStatus
-              ]}
-            >
-              <Text style={styles.productStatusText}>
-                {product.status === 'available' ? 'Available' : 'Out of Stock'}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.productActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.editButton]}
-              onPress={() => onEdit(product)}
-            >
-              <Icon name="edit" size={20} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.deleteButton]}
-              onPress={() => onDelete(product.id)}
-            >
-              <Icon name="delete" size={20} color="#fff" />
-            </TouchableOpacity>
+            ))}
           </View>
         </View>
-      ))
-    )}
-  </ScrollView>
+      </View>
+    </View>
+    <View style={styles.productStatusContainer}>
+      <Text style={styles.productStatusLabel}>Status:</Text>
+      <View 
+        style={[
+          styles.productStatusBadge, 
+          product.status === 'available' 
+            ? styles.availableStatus 
+            : styles.outOfStockStatus
+        ]}
+      >
+        <Text style={styles.productStatusText}>
+          {product.status === 'available' ? 'Available' : 'Out of Stock'}
+        </Text>
+      </View>
+    </View>
+    <View style={styles.productActions}>
+      <TouchableOpacity
+        style={[styles.actionButton, styles.editButton]}
+        onPress={() => onEdit(product)}
+      >
+        <Icon name="edit" size={20} color="#fff" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.actionButton, styles.deleteButton]}
+        onPress={() => onDelete(product.id)}
+      >
+        <Icon name="delete" size={20} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  </View>
+));
+
+// Header component for the create button
+const ListHeader = memo(({ onCreateNew }: { onCreateNew: () => void }) => (
+  <TouchableOpacity 
+    style={styles.createButton}
+    onPress={onCreateNew}
+  >
+    <Text style={styles.buttonText}>Create New Product</Text>
+  </TouchableOpacity>
+));
+
+// Footer component for loading indicator
+const ListFooter = memo(({ isLoading }: { isLoading: boolean }) => (
+  isLoading ? (
+    <View style={styles.loadingFooter}>
+      <ActivityIndicator size="large" color="#2196F3" />
+      <Text style={styles.loadingText}>Loading more products...</Text>
+    </View>
+  ) : null
+));
+
+export function ProductList({ products, isLoading, onEdit, onDelete, onCreateNew }: ProductListProps) {
+  // Memoized render function to prevent unnecessary re-renders
+  const renderItem = useCallback(({ item }: { item: Product }) => (
+    <ProductItem 
+      product={item} 
+      onEdit={onEdit} 
+      onDelete={onDelete} 
+    />
+  ), [onEdit, onDelete]);
+
+  // Memoized key extractor
+  const keyExtractor = useCallback((item: Product) => item.id.toString(), []);
+
+  // Get item layout for better performance (if all items have same height)
+  const getItemLayout = useCallback((data: any, index: number) => ({
+    length: 200, // Approximate height of each product item
+    offset: 200 * index,
+    index,
+  }), []);
+
+  if (isLoading && products.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2196F3" />
+        <Text style={styles.loadingText}>Loading products...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={products}
+      renderItem={renderItem}
+      keyExtractor={keyExtractor}
+      getItemLayout={getItemLayout}
+      ListHeaderComponent={<ListHeader onCreateNew={onCreateNew} />}
+      ListFooterComponent={<ListFooter isLoading={isLoading} />}
+      style={styles.productList}
+      contentContainerStyle={styles.productListContent}
+      removeClippedSubviews={true} // Remove off-screen items from memory
+      maxToRenderPerBatch={10} // Render 10 items per batch
+      updateCellsBatchingPeriod={50} // Update every 50ms
+      initialNumToRender={10} // Initial render count
+      windowSize={10} // Keep 10 screens worth of items in memory
+      showsVerticalScrollIndicator={false}
+      // Performance optimizations
+      disableVirtualization={false}
+      legacyImplementation={false}
+    />
   );
 }
 
@@ -119,6 +183,24 @@ const styles = StyleSheet.create({
     productList: {
       flex: 1,
       marginBottom: 20,
+    },
+    productListContent: {
+      paddingBottom: 20,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    loadingFooter: {
+      padding: 20,
+      alignItems: 'center',
+    },
+    loadingText: {
+      marginTop: 10,
+      fontSize: 16,
+      color: '#666',
     },
     productItem: {
       padding: 15,

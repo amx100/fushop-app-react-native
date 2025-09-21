@@ -72,4 +72,17 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  realtime: {
+    // Disable realtime entirely for React Native compatibility
+    // This prevents WebSocket constructor conflicts with polyfills
+    transport: undefined,
+    params: {
+      eventsPerSecond: 0,
+    },
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'supabase-js-react-native',
+    },
+  },
 });

@@ -45,7 +45,7 @@ export const ListHeader = ({
               source={{ uri: 'https://www.vhv.rs/dpng/d/550-5508649_person-image-placeholder-clipart-png-download-no-profile.png' }}
               style={styles.avatarImage}
             />
-            <Text style={styles.avatarText}>Fashion United 100</Text>
+           
           </View>
         </View>
         <View style={styles.headerRight}>
@@ -100,14 +100,14 @@ export const ListHeader = ({
             <Link asChild href={`/categories/${item.slug}`}>
               <Pressable style={styles.category}>
                 <Image
-                  source={{ uri: item.imageUrl }}
+                  source={{ uri: item.imageurl || 'https://via.placeholder.com/80x120/cccccc/666666?text=No+Image' }}
                   style={styles.categoryImage}
                 />
-                <Text style={styles.categoryText}>{item.name}</Text>
+                <Text style={styles.categoryText}>{item.name || 'Category'}</Text>
               </Pressable>
             </Link>
           )}
-          keyExtractor={item => item.name}
+          keyExtractor={item => item.name || item.id.toString()}
           horizontal
           showsHorizontalScrollIndicator={false}
         />

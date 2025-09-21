@@ -25,12 +25,12 @@ const Category = () => {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: category.name }} />
+      <Stack.Screen options={{ title: category.name || 'Category' }} />
       <Image
-        source={{ uri: category.imageUrl, cache: 'force-cache' }} // Cache applied here
+        source={{ uri: category.imageurl || 'https://via.placeholder.com/400x200/cccccc/666666?text=No+Image', cache: 'force-cache' }} // Cache applied here
         style={styles.categoryImage}
       />
-      <Text style={styles.categoryName}>{category.name}</Text>
+      <Text style={styles.categoryName}>{category.name || 'Category'}</Text>
       <FlatList
         data={products}
         keyExtractor={item => item.id.toString()}

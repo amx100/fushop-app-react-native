@@ -128,7 +128,7 @@ const ProductDetails = () => {
     }
     
     // Dodatna provera statusa proizvoda i količine
-    if (product.status === 'out_of_stock') {
+    if (product?.status === 'out_of_stock') {
       toast.show('Proizvod trenutno nije dostupan', {
         type: 'warning',
         placement: 'top',
@@ -137,7 +137,7 @@ const ProductDetails = () => {
       return;
     }
 
-    const sizeData = product.sizes?.find((s: ProductSize) => s.size === selectedSize);
+    const sizeData = product?.sizes?.find((s: ProductSize) => s.size === selectedSize);
     
     if (!sizeData || sizeData.quantity === 0) {
       toast.show('Izabrana veličina nije dostupna', {
@@ -150,11 +150,11 @@ const ProductDetails = () => {
 
     // Postojeća logika dodavanja u korpu...
     addItem({
-      id: product.id,
-      title: product.title,
-      heroImage: product.heroImage,
-      name: product.title,
-      price: product.price,
+      id: product?.id || 0,
+      title: product?.title || '',
+      heroImage: product?.heroimage || '',
+      name: product?.title || '',
+      price: product?.price || 0,
       quantity,
       size: selectedSize,
       size_id: sizeData.size_id,
@@ -185,7 +185,7 @@ const ProductDetails = () => {
     ({ item, index }: { item: string; index: number }) => {
       return (
         <Image
-          source={{ uri: item, cache: 'force-cache' }}
+          source={{ uri: item || 'https://via.placeholder.com/80x80/cccccc/666666?text=No+Image', cache: 'force-cache' }}
           style={styles.thumbnailImage}
           key={`${product?.id}-image-${index}`}
         />
@@ -225,13 +225,13 @@ const ProductDetails = () => {
 
         <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
           <View style={styles.heroContainer}>
-            <ImageBackground
-              source={{
-                uri: product.heroImage,
-                cache: 'force-cache',
-              }}
-              style={styles.heroImage}
-              resizeMode="cover"
+        <ImageBackground
+          source={{
+            uri: product.heroimage || 'https://via.placeholder.com/400x300/cccccc/666666?text=No+Image',
+            cache: 'force-cache',
+          }}
+          style={styles.heroImage}
+          resizeMode="cover"
             >
               <View style={styles.outOfStockOverlay}>
                 <Text style={styles.outOfStockText}>Nema na stanju</Text>
@@ -255,7 +255,7 @@ const ProductDetails = () => {
 
             <View style={styles.galleryContainer}>
               <FlatList
-                data={product.imagesUrl}
+                data={product.imagesurl}
                 keyExtractor={(item, index) => `${product.id}-image-${index}`}
                 renderItem={renderThumbnail}
                 horizontal
@@ -292,7 +292,7 @@ const ProductDetails = () => {
         {/* Full Hero Image Section */}
         <ImageBackground
           source={{
-            uri: product.heroImage,
+            uri: product.heroimage || 'https://via.placeholder.com/400x300/cccccc/666666?text=No+Image',
             cache: 'force-cache', // Added cache policy similar to ProductListItem
           }}
           style={styles.heroContainer}
@@ -311,7 +311,7 @@ const ProductDetails = () => {
 
           <View style={styles.galleryContainer}>
             <FlatList
-              data={product.imagesUrl}
+              data={product.imagesurl}
               keyExtractor={(item, index) => `${product.id}-image-${index}`}
               renderItem={renderThumbnail}
               horizontal

@@ -54,16 +54,15 @@ export default function ShopIndex() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log('Starting data fetch...');
+     
         setIsLoading(true);
         
         // Fetch categories
         const { data: categoriesData, error: categoriesError } = await supabase
           .from('category')
-          .select('*');
+          .select('id, name, slug, imageurl, products, created_at');
         
-        console.log('Categories data:', categoriesData);
-        console.log('Categories error:', categoriesError);
+     
         
         if (categoriesError) throw categoriesError;
         
@@ -72,8 +71,7 @@ export default function ShopIndex() {
           .from('product')
           .select('*');
         
-        console.log('Products data:', productsData);
-        console.log('Products error:', productsError);
+      
         
         if (productsError) throw productsError;
         

@@ -16,7 +16,7 @@ export async function registerForPushNotificationsAsync() {
 
     // Prekinite ako nema dozvole
     if (finalStatus !== 'granted') {
-      console.log('Notification permissions not granted');
+    
       return;
     }
 
@@ -29,14 +29,16 @@ export async function registerForPushNotificationsAsync() {
     const { data: { user } } = await supabase.auth.getUser();
 
     // Čuvanje tokena u Supabase
-    const { error } = await supabase
-      .from('user_push_tokens')
-      .upsert({ 
-        token: token.data, 
-        user_id: user?.id 
-      });
+    if (user?.id) {
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          expo_notification_token: token.data
+        })
+        .eq('id', user.id);
 
-    if (error) console.error('Error saving push token', error);
+      if (error) console.error('Error saving push token', error);
+    }
 
   } catch (error) {
     console.error('Push token registration error:', error);

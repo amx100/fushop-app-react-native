@@ -10,7 +10,7 @@ import {
   Platform,
   FlatList,
 } from 'react-native';
-import { format } from 'date-fns';
+// Removed date-fns import due to React Native compatibility issues
 import { OrderStatus } from '../../types';
 import { Toast } from 'react-native-toast-notifications';
 
@@ -18,6 +18,28 @@ import { Toast } from 'react-native-toast-notifications';
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+
+// Safe date formatting function
+const formatDate = (dateString: string): string => {
+  try {
+    if (!dateString) return 'Unknown date';
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    const month = months[date.getMonth()];
+    const day = date.getDate().toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${month} ${day}, ${year}`;
+  } catch (error) {
+    console.error('Date formatting error:', error);
+    return 'Date error';
+  }
+};
 
 type Order = {
   id: number;
@@ -85,7 +107,7 @@ const OrderItem = React.memo(({ order, statusRows, onUpdateStatus }: OrderItemPr
             Total Price: ${order.totalPrice.toFixed(2)}
           </Text>
           <Text style={styles.orderDate}>
-            {format(new Date(order.created_at), 'MMM dd, yyyy')}
+            {formatDate(order.created_at)}
           </Text>
 
           <View style={styles.itemsContainer}>

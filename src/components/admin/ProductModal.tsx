@@ -276,7 +276,7 @@ export function ModernProductModal({
                 />
                 <View style={styles.categoriesList}>
                   {allCategories?.filter(cat =>
-                    cat.name.toLowerCase().includes(searchCategory.toLowerCase())
+                    cat.name?.toLowerCase().includes(searchCategory.toLowerCase())
                   ).map((category) => (
                     <TouchableOpacity
                       key={category.id}
@@ -296,7 +296,7 @@ export function ModernProductModal({
                           formData.category === category.id && styles.selectedCategoryChipText
                         ]}
                       >
-                        {category.name}
+                        {category.name || 'Unnamed Category'}
                       </Text>
                     </TouchableOpacity>
                   ))}

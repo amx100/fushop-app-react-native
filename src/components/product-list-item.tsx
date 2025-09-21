@@ -23,7 +23,7 @@ const ProductListItemComponent = ({ product }: ProductListItemProps) => {
         <View style={styles.itemImageContainer}>
           <Image 
             source={{ 
-              uri: product.heroImage,
+              uri: product.heroimage || 'https://via.placeholder.com/300x400/cccccc/666666?text=No+Image',
               cache: 'force-cache' // Basic caching on supported platforms
             }} 
             style={[
@@ -70,7 +70,7 @@ function areEqual(prevProps: ProductListItemProps, nextProps: ProductListItemPro
   return (
     prevProps.product.id === nextProps.product.id &&
     prevProps.product.slug === nextProps.product.slug &&
-    prevProps.product.heroImage === nextProps.product.heroImage &&
+    prevProps.product.heroimage === nextProps.product.heroimage &&
     prevProps.product.price === nextProps.product.price &&
     prevProps.product.title === nextProps.product.title &&
     prevProps.product.status === nextProps.product.status

@@ -10,7 +10,7 @@ export const getProductsAndCategories = () => {
     queryFn: async () => {
       const [products, categories] = await Promise.all([
         supabase.from('product').select('*'),
-        supabase.from('category').select('*'),
+        supabase.from('category').select('id, name, slug, imageurl, products, created_at'),
       ]);
 
       if (products.error || categories.error) {
@@ -64,7 +64,7 @@ export const getCategoryAndProducts = (categorySlug: string) => {
     queryFn: async () => {
       const { data: category, error: categoryError } = await supabase
         .from('category')
-        .select('*')
+        .select('id, name, slug, imageurl, products, created_at')
         .eq('slug', categorySlug)
         .single();
 
@@ -98,7 +98,7 @@ export const getMyOrders = () => {
         .from('order')
         .select('*')
         .order('created_at', { ascending: false })
-        .eq('user', id);
+        .eq('user_id', id);
 
       if (error)
         throw new Error(
@@ -128,10 +128,10 @@ export const createOrder = () => {
       const { data: orderData, error: orderError } = await supabase
         .from('order')
         .insert({
-          totalPrice,
+          totalprice: totalPrice,
           slug,
-          user: auth.user.id,
-          status: 'Pending',
+          user_id: auth.user.id,
+          status: 'pending',
         })
         .select('*')
         .single();
@@ -149,7 +149,7 @@ export const createOrder = () => {
           .from('order_item')
           .insert(
             items.map(item => ({
-              order: orderData.id,
+              order_id: orderData.id,
               product: item.id,
               quantity: item.quantity,
               size: item.size,
@@ -163,14 +163,27 @@ export const createOrder = () => {
 
         // 3. Update product quantities one by one to ensure accuracy
         for (const item of items) {
-          const { error: quantityError } = await supabase.rpc(
-            'decrement_size_quantity',
-            {
-              p_product_id: item.id,
-              p_quantity: item.quantity,
-              p_size_id: item.size_id
-            }
-          );
+          // First get the current quantity
+          const { data: currentSizeData, error: fetchError } = await supabase
+            .from('product_size')
+            .select('quantity')
+            .eq('product_id', item.id)
+            .eq('size_id', item.size_id)
+            .single();
+
+          if (fetchError) {
+            throw new Error(`Error fetching current quantity for product ${item.id}: ${fetchError.message}`);
+          }
+
+          // Calculate new quantity (don't go below 0)
+          const newQuantity = Math.max(0, (currentSizeData.quantity || 0) - item.quantity);
+
+          // Update the quantity
+          const { error: quantityError } = await supabase
+            .from('product_size')
+            .update({ quantity: newQuantity })
+            .eq('product_id', item.id)
+            .eq('size_id', item.size_id);
 
           if (quantityError) {
             throw new Error(`Error updating quantity for product ${item.id}: ${quantityError.message}`);
@@ -215,7 +228,7 @@ export const createOrderItem = () => {
         .from('order_item')
         .insert(
           insertData.map(({ orderId, quantity, productId, size }) => ({
-            order: orderId,
+            order_id: orderId,
             product: productId,
             quantity,
             size // Make sure size is included here
@@ -232,15 +245,44 @@ export const createOrderItem = () => {
 
       // Then update the quantities for each product size
       try {
-        await Promise.all(
-          insertData.map(({ productId, quantity, size }) =>
-            supabase.rpc('decrement_size_quantity', {
-              p_product_id: productId,
-              p_quantity: quantity,
-              p_size: size
-            })
-          )
-        );
+        for (const { productId, quantity, size } of insertData) {
+          // Find the size_id for this size value
+          const { data: sizeData, error: sizeError } = await supabase
+            .from('sizes')
+            .select('id')
+            .eq('value', size)
+            .single();
+
+          if (sizeError || !sizeData) {
+            throw new Error(`Size "${size}" not found`);
+          }
+
+          // Get current quantity
+          const { data: currentSizeData, error: fetchError } = await supabase
+            .from('product_size')
+            .select('quantity')
+            .eq('product_id', productId)
+            .eq('size_id', sizeData.id)
+            .single();
+
+          if (fetchError) {
+            throw new Error(`Error fetching current quantity for product ${productId}: ${fetchError.message}`);
+          }
+
+          // Calculate new quantity (don't go below 0)
+          const newQuantity = Math.max(0, (currentSizeData.quantity || 0) - quantity);
+
+          // Update the quantity
+          const { error: quantityError } = await supabase
+            .from('product_size')
+            .update({ quantity: newQuantity })
+            .eq('product_id', productId)
+            .eq('size_id', sizeData.id);
+
+          if (quantityError) {
+            throw new Error(`Error updating quantity for product ${productId}: ${quantityError.message}`);
+          }
+        }
       } catch (error) {
         console.error('Error updating product quantities:', error);
         throw new Error(
@@ -268,7 +310,7 @@ export const getMyOrder = (slug: string) => {
         .from('order')
         .select('*, order_items:order_item(*, products:product(*))')
         .eq('slug', slug)
-        .eq('user', auth.user.id)
+        .eq('user_id', auth.user.id)
         .single();
 
       if (error || !data) {
