@@ -3,7 +3,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Product, ProductFormData, SizeType } from '../types';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { randomUUID } from 'expo-crypto';
 import { decode } from 'base64-arraybuffer';
 import { Toast } from 'react-native-toast-notifications';
@@ -34,8 +34,7 @@ export function useAdminProducts() {
             sizes:sizes(value)
           )
         `)
-        .order('created_at', { ascending: false })
-        .limit(50); // Limit initial load to 50 products
+        .order('created_at', { ascending: false });
 
       if (productsError) throw productsError;
 
@@ -212,6 +211,9 @@ export function useAdminProducts() {
         if (sizesInsertError) throw sizesInsertError;
       }
 
+      // Update product status based on actual stock after inserting sizes
+      await updateProductStatus(productData.id);
+
       return productData;
     },
     onSuccess: () => {
@@ -300,6 +302,9 @@ export function useAdminProducts() {
 
         if (sizesInsertError) throw sizesInsertError;
       }
+
+      // Update product status based on actual stock after updating sizes
+      await updateProductStatus(id);
 
       return { id, formData };
     },
@@ -414,6 +419,32 @@ export function useAdminProducts() {
     }
   };
 
+  // Function to fix status for all products (useful for manually added products)
+  const fixAllProductStatuses = async () => {
+    try {
+      // Get all products
+      const { data: allProducts, error: productsError } = await supabase
+        .from('product')
+        .select('id');
+
+      if (productsError) throw productsError;
+
+      if (allProducts) {
+        // Update status for each product
+        for (const product of allProducts) {
+          await updateProductStatus(product.id);
+        }
+      }
+
+      // Refresh the products list
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      Toast.show('All product statuses updated', { type: 'success' });
+    } catch (error) {
+      console.error('Error fixing product statuses:', error);
+      Toast.show('Error fixing product statuses', { type: 'error' });
+    }
+  };
+
   return {
     products,
     isLoading,
@@ -423,6 +454,7 @@ export function useAdminProducts() {
     pickImage,
     tempImageUrl,
     decrementSizeQuantity,
-    updateProductStatus,  // Expose this method if needed
+    updateProductStatus,
+    fixAllProductStatuses,  // New function to fix all statuses
   };
 } 

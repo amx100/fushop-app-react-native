@@ -1,8 +1,21 @@
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  FlatList, 
+  StyleSheet, 
+  ActivityIndicator, 
+  Dimensions, 
+  Animated 
+} from 'react-native';
 import { Product } from '../../types';
 import RemoteImage from '../RemoteImage';
-import Icon from '@rneui/themed/dist/Icon';
-import React, { memo, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { memo, useCallback, useRef } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
+const CARD_WIDTH = (width - 48) / 2;
 
 type ProductListProps = {
   products: Product[];
@@ -12,503 +25,497 @@ type ProductListProps = {
   onCreateNew: () => void;
 };
 
-// Memoized ProductItem component to prevent unnecessary re-renders
-const ProductItem = memo(({ 
-  product, 
-  onEdit, 
-  onDelete 
-}: { 
-  product: Product; 
-  onEdit: (product: Product) => void; 
-  onDelete: (id: number) => void; 
-}) => (
-  <View style={styles.productItem}>
-    <View style={styles.productHeader}>
-      {product.heroimage ? (
-        <RemoteImage 
-          path={product.heroimage}
-          fallback="https://placehold.co/80x80"
-          style={styles.productImage}
-        />
-      ) : (
-        <View style={styles.noImage}>
-          <Text style={styles.noImageText}>No Image</Text>
-        </View>
-      )}
-      <View style={styles.productInfo}>
-        <Text style={styles.productTitle}>{product.title}</Text>
-        <Text style={styles.productPrice}>Price: ${product.price}</Text>
-        
-        <View style={styles.sizesContainer}>
-          <Text style={styles.sizesTitle}>Available Sizes:</Text>
-          <View style={styles.sizesGrid}>
-            {product.sizes?.map((size) => (
-              <View key={size.id} style={styles.sizeItem}>
-                <Text style={styles.sizeText}>
-                  {size.size}: {size.quantity}
-                </Text>
-              </View>
-            ))}
+const ProductCard = memo(({ product, onEdit, onDelete }: { 
+  product: Product;
+  onEdit: (product: Product) => void;
+  onDelete: (id: number) => void;
+}) => {
+  // Safety checks
+  if (!product || !product.id) {
+    return null;
+  }
+
+  const totalStock = product.sizes?.reduce((sum: number, size: any) => sum + (size.quantity || 0), 0) || 0;
+  const isAvailable = product.status === 'available';
+
+  // Animacija pritiskanja
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.96, useNativeDriver: true }).start();
+  const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
+
+  return (
+    <Animated.View style={[styles.productCard, { transform: [{ scale: scaleAnim }] }]}>
+      <TouchableOpacity 
+        activeOpacity={0.9} 
+        onPress={() => onEdit(product)} 
+        onPressIn={onPressIn} 
+        onPressOut={onPressOut}
+      >
+        <View style={styles.imageContainer}>
+          <RemoteImage
+            path={product.heroimage}
+            fallback="https://placehold.co/200x200/cccccc/666666?text=No+Image"
+            style={styles.productImage}
+          />
+          <View style={[styles.statusBadge, isAvailable ? styles.availableBadge : styles.outOfStockBadge]}>
+            <Text style={styles.statusBadgeText}>{isAvailable ? 'Dostupan' : 'Nema na stanju'}</Text>
           </View>
         </View>
-      </View>
-    </View>
-    <View style={styles.productStatusContainer}>
-      <Text style={styles.productStatusLabel}>Status:</Text>
-      <View 
-        style={[
-          styles.productStatusBadge, 
-          product.status === 'available' 
-            ? styles.availableStatus 
-            : styles.outOfStockStatus
-        ]}
-      >
-        <Text style={styles.productStatusText}>
-          {product.status === 'available' ? 'Available' : 'Out of Stock'}
-        </Text>
-      </View>
-    </View>
-    <View style={styles.productActions}>
-      <TouchableOpacity
-        style={[styles.actionButton, styles.editButton]}
-        onPress={() => onEdit(product)}
-      >
-        <Icon name="edit" size={20} color="#fff" />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.actionButton, styles.deleteButton]}
-        onPress={() => onDelete(product.id)}
-      >
-        <Icon name="delete" size={20} color="#fff" />
-      </TouchableOpacity>
-    </View>
-  </View>
-));
 
-// Header component for the create button
-const ListHeader = memo(({ onCreateNew }: { onCreateNew: () => void }) => (
-  <TouchableOpacity 
-    style={styles.createButton}
-    onPress={onCreateNew}
-  >
-    <Text style={styles.buttonText}>Create New Product</Text>
-  </TouchableOpacity>
-));
+        <View style={styles.productInfo}>
+          <Text style={styles.productTitle} numberOfLines={2}>
+            {product.title}
+          </Text>
 
-// Footer component for loading indicator
+          <View style={styles.priceAndStockRow}>
+            <Text style={styles.priceValue}>{product.price.toFixed(0)} RSD</Text>
+            <Text style={styles.stockValue}>Zalihe: {totalStock}</Text>
+          </View>
+
+          {product.sizes && product.sizes.length > 0 && (
+            <View style={styles.sizesPreview}>
+              {product.sizes.map((size, index) => (
+                <View key={size.id || index} style={[styles.sizeChip, size.quantity === 0 && styles.emptySizeChip]}>
+                  <Text style={[styles.sizeText, size.quantity === 0 && styles.emptySizeText]}>
+                    {size.size} ({size.quantity || 0})
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity style={[styles.actionButton, styles.editButton]} onPress={() => onEdit(product)}>
+            <Ionicons name="create-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => onDelete(product.id)}>
+            <Ionicons name="trash-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+});
+
+const ListHeader = memo(({ onCreateNew, products }: { 
+  onCreateNew: () => void;
+  products: Product[];
+}) => {
+  // Izračunaj statistike
+  const totalProducts = products.length;
+  const availableProducts = products.filter(p => p.status === 'available').length;
+  const outOfStockProducts = products.filter(p => p.status === 'out_of_stock').length;
+  
+  // Ukupne količine po veličinama
+  const sizeStats = products.reduce((acc, product) => {
+    if (product.sizes) {
+      product.sizes.forEach(size => {
+        const sizeName = size.size;
+        if (!acc[sizeName]) {
+          acc[sizeName] = 0;
+        }
+        acc[sizeName] += size.quantity || 0;
+      });
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const totalStock = Object.values(sizeStats).reduce((sum, qty) => sum + qty, 0);
+
+  return (
+    <View style={styles.headerContainer}>
+      {/* Statistike */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{totalProducts}</Text>
+            <Text style={styles.statLabel}>Ukupno proizvoda</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={[styles.statNumber, { color: '#2ecc71' }]}>{availableProducts}</Text>
+            <Text style={styles.statLabel}>Dostupni</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={[styles.statNumber, { color: '#e74c3c' }]}>{outOfStockProducts}</Text>
+            <Text style={styles.statLabel}>Nema na stanju</Text>
+          </View>
+        </View>
+        
+        <View style={styles.stockStatsContainer}>
+          <Text style={styles.stockStatsTitle}>Ukupne zalihe: {totalStock} komada</Text>
+          {Object.keys(sizeStats).length > 0 && (
+            <View style={styles.sizeStatsContainer}>
+              {Object.entries(sizeStats)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([size, quantity]) => (
+                  <View key={size} style={styles.sizeStatItem}>
+                    <Text style={styles.sizeStatText}>{size}: {quantity}</Text>
+                  </View>
+                ))}
+            </View>
+          )}
+        </View>
+      </View>
+
+      <TouchableOpacity onPress={onCreateNew}>
+        <LinearGradient
+          colors={['#ff6b35', '#ff4757']}
+          style={styles.createButton}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Ionicons name="add-circle-outline" size={24} color="white" />
+          <Text style={styles.createButtonText}>Dodaj novi proizvod</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
+  );
+});
+
 const ListFooter = memo(({ isLoading }: { isLoading: boolean }) => (
   isLoading ? (
     <View style={styles.loadingFooter}>
-      <ActivityIndicator size="large" color="#2196F3" />
-      <Text style={styles.loadingText}>Loading more products...</Text>
+      <ActivityIndicator size="large" color="#667eea" />
+      <Text style={styles.loadingText}>Učitavanje još proizvoda...</Text>
     </View>
   ) : null
 ));
 
+const EmptyState = memo(() => (
+  <View style={styles.emptyState}>
+    <Ionicons name="file-tray-stacked-outline" size={80} color="#dcdcdc" />
+    <Text style={styles.emptyTitle}>Nema proizvoda</Text>
+    <Text style={styles.emptySubtitle}>Započnite dodavanjem prvog proizvoda.</Text>
+  </View>
+));
+
+const ErrorState = memo(() => (
+  <View style={styles.errorState}>
+    <Ionicons name="warning-outline" size={80} color="#ff6b35" />
+    <Text style={styles.errorTitle}>Greška pri učitavanju</Text>
+    <Text style={styles.errorSubtitle}>Pokušajte ponovo ili osvežite stranicu.</Text>
+  </View>
+));
+
 export function ProductList({ products, isLoading, onEdit, onDelete, onCreateNew }: ProductListProps) {
-  // Memoized render function to prevent unnecessary re-renders
-  const renderItem = useCallback(({ item }: { item: Product }) => (
-    <ProductItem 
-      product={item} 
-      onEdit={onEdit} 
-      onDelete={onDelete} 
-    />
-  ), [onEdit, onDelete]);
+  const renderItem = useCallback(({ item }: { item: Product }) => {
+    // Safety check for each item
+    if (!item || !item.id) {
+      return null;
+    }
+    return <ProductCard product={item} onEdit={onEdit} onDelete={onDelete} />;
+  }, [onEdit, onDelete]);
 
-  // Memoized key extractor
-  const keyExtractor = useCallback((item: Product) => item.id.toString(), []);
+  const keyExtractor = useCallback((item: Product) => {
+    // Safety check for key extraction
+    if (!item || !item.id) {
+      return `empty-${Math.random()}`;
+    }
+    return item.id.toString();
+  }, []);
 
-  // Get item layout for better performance (if all items have same height)
-  const getItemLayout = useCallback((data: any, index: number) => ({
-    length: 200, // Approximate height of each product item
-    offset: 200 * index,
-    index,
-  }), []);
+  // Safety check for products array
+  const safeProducts = products?.filter(product => product && product.id) || [];
 
-  if (isLoading && products.length === 0) {
+  if (isLoading && safeProducts.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Loading products...</Text>
+        <ActivityIndicator size="large" color="#667eea" />
+        <Text style={styles.loadingText}>Učitavanje proizvoda...</Text>
       </View>
     );
   }
 
   return (
     <FlatList
-      data={products}
+      data={safeProducts}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
-      getItemLayout={getItemLayout}
-      ListHeaderComponent={<ListHeader onCreateNew={onCreateNew} />}
+      numColumns={2}
+      columnWrapperStyle={styles.row}
+      ListHeaderComponent={<ListHeader onCreateNew={onCreateNew} products={safeProducts} />}
       ListFooterComponent={<ListFooter isLoading={isLoading} />}
+      ListEmptyComponent={<EmptyState />}
       style={styles.productList}
       contentContainerStyle={styles.productListContent}
-      removeClippedSubviews={true} // Remove off-screen items from memory
-      maxToRenderPerBatch={10} // Render 10 items per batch
-      updateCellsBatchingPeriod={50} // Update every 50ms
-      initialNumToRender={10} // Initial render count
-      windowSize={10} // Keep 10 screens worth of items in memory
+      removeClippedSubviews={true} // Enable for better performance
+      initialNumToRender={12} // Show fewer items initially
+      maxToRenderPerBatch={6} // Render fewer items per batch
+      windowSize={10} // Standard window size
+      updateCellsBatchingPeriod={50} // Faster updates
+      onEndReachedThreshold={0.5} // Load more when 50% from end
+      maintainVisibleContentPosition={{
+        minIndexForVisible: 0,
+        autoscrollToTopThreshold: 10,
+      }}
       showsVerticalScrollIndicator={false}
-      // Performance optimizations
-      disableVirtualization={false}
-      legacyImplementation={false}
+      extraData={safeProducts.length} // Force re-render when data changes
     />
   );
 }
 
 const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      padding: 20,
-      backgroundColor: '#fff',
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      marginBottom: 10,
-    },
-    subtitle: {
-      fontSize: 16,
-      color: '#666',
-      marginBottom: 20,
-    },
-    createButton: {
-      backgroundColor: '#13293D',
-      padding: 15,
-      borderRadius: 8,
-      alignItems: 'center',
-      marginBottom: 20,
-    },
-    productList: {
-      flex: 1,
-      marginBottom: 20,
-    },
-    productListContent: {
-      paddingBottom: 20,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    loadingFooter: {
-      padding: 20,
-      alignItems: 'center',
-    },
-    loadingText: {
-      marginTop: 10,
-      fontSize: 16,
-      color: '#666',
-    },
-    productItem: {
-      padding: 15,
-      borderRadius: 8,
-      backgroundColor: '#f5f5f5',
-      marginBottom: 10,
-    },
-    productHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    productImage: {
-      width: 100,
-      height: 100,
-      borderRadius: 8,
-      marginRight: 15,
-    },
-    noImage: {
-      width: 100,
-      height: 100,
-      borderRadius: 8,
-      backgroundColor: '#ddd',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 15,
-    },
-    noImageText: {
-      color: '#666',
-      fontSize: 12,
-    },
-    productInfo: {
-      flex: 1,
-    },
-    productTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      marginBottom: 5,
-    },
-    productPrice: {
-      fontSize: 16,
-      color: '#666',
-      marginBottom: 3,
-    },
-    productQuantity: {
-      fontSize: 16,
-      color: '#666',
-    },
-    productActions: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      marginTop: 10,
-    },
-    actionButton: {
-      padding: 8,
-      borderRadius: 4,
-      marginLeft: 10,
-      minWidth: 70,
-      alignItems: 'center',
-    },
-    editButton: {
-      backgroundColor: '#B3A394',
-    },
-    deleteButton: {
-      backgroundColor: '#D64933',
-    },
-    signOutButton: {
-      backgroundColor: '#d32f2f',
-      padding: 15,
-      borderRadius: 8,
-      alignItems: 'center',
-    },
-    buttonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: 'bold',
-    },
-    modalContainer: {
-      flex: 1,
-      padding: 20,
-      backgroundColor: '#fff',
-    },
-    modalTitle: {
-      top: 50,
-      fontSize: 24,
-      fontWeight: 'bold',
-      marginBottom: 20,
-    },
-    input: {
-      top: 50,
-      borderWidth: 1,
-      borderColor: '#ddd',
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 15,
-      fontSize: 16,
-    },
-    modalActions: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 20,
-    },
-    modalButton: {
-      top:50,
-      padding: 15,
-      borderRadius: 8,
-      flex: 0.48,
-      alignItems: 'center',
-    },
-    cancelButton: {
-      backgroundColor: '#9e9e9e',
-    },
-    saveButton: {
-      backgroundColor: '#4CAF50',
-    },
-    imageUploadContainer: {
-      top: 50,
-      alignItems: 'center',
-      marginBottom: 20,
-      width: '100%',
-    },
-    previewImage: {
-      width: '100%',
-      height: 200,
-      borderRadius: 8,
-      marginBottom: 10,
-      backgroundColor: '#f0f0f0',
-    },
-    imagePlaceholder: {
-      width: '100%',
-      height: 200,
-      borderRadius: 8,
-      backgroundColor: '#f0f0f0',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    placeholderText: {
-      color: '#666',
-      fontSize: 16,
-    },
-    imageUploadButton: {
-      backgroundColor: '#2196F3',
-      padding: 12,
-      borderRadius: 8,
-      width: '100%',
-      alignItems: 'center',
-    },
-    changeImageButton: {
-      backgroundColor: '#1976D2',
-    },
-    tabContainer: {
-      flexDirection: 'row',
-      marginBottom: 20,
-    },
-    tab: {
-      flex: 1,
-      padding: 15,
-      alignItems: 'center',
-      backgroundColor: '#f5f5f5',
-      marginHorizontal: 5,
-      borderRadius: 8,
-    },
-    activeTab: {
-      backgroundColor: '#2196F3',
-    },
-    tabText: {
-      fontSize: 16,
-      color: '#666',
-    },
-    activeTabText: {
-      color: '#fff',
-      fontWeight: 'bold',
-    },
-    orderList: {
-      flex: 1,
-      marginBottom: 20,
-    },
-    orderItem: {
-      padding: 15,
-      backgroundColor: '#f5f5f5',
-      borderRadius: 8,
-      marginBottom: 10,
-    },
-    orderHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 10,
-    },
-    orderTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-    },
-    orderDate: {
-      color: '#666',
-    },
-    orderPrice: {
-      fontSize: 16,
-      color: '#666',
-      marginBottom: 10,
-    },
-    orderStatusContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 15,
-    },
-    orderStatusLabel: {
-      fontSize: 16,
-      marginRight: 10,
-    },
-    statusBadge: {
-      padding: 5,
-      borderRadius: 4,
-      minWidth: 80,
-      alignItems: 'center',
-    },
-    statusBadge_Pending: {
-      backgroundColor: '#ffcc00',
-    },
-    statusBadge_Completed: {
-      backgroundColor: '#4caf50',
-    },
-    statusBadge_Shipped: {
-      backgroundColor: '#2196f3',
-    },
-    statusBadge_InTransit: {
-      backgroundColor: '#ff9800',
-    },
-    statusText: {
-      color: '#fff',
-      fontWeight: 'bold',
-    },
-    statusButtons: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-    },
-    statusButton: {
-      padding: 8,
-      borderRadius: 4,
-      minWidth: 70,
-      alignItems: 'center',
-    },
-    statusButtonDisabled: {
-      opacity: 0.5,
-    },
-    statusButton_Pending: {
-      backgroundColor: '#ffcc00',
-    },
-    statusButton_Completed: {
-      backgroundColor: '#4caf50',
-    },
-    statusButton_Shipped: {
-      backgroundColor: '#2196f3',
-    },
-    statusButton_InTransit: {
-      backgroundColor: '#ff9800',
-    },
-    statusButtonText: {
-      color: '#fff',
-      fontWeight: 'bold',
-    },
-    sizesContainer: {
-      marginTop: 8,
-    },
-    sizesTitle: {
-      fontSize: 14,
-      fontWeight: 'bold',
-      color: '#666',
-      marginBottom: 4,
-    },
-    sizesGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    sizeItem: {
-      backgroundColor: '#e3e3e3',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 4,
-    },
-    sizeText: {
-      fontSize: 12,
-      color: '#333',
-    },
-    productStatusContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 10,
-    },
-    productStatusLabel: {
-      marginRight: 10,
-      fontWeight: 'bold',
-    },
-    productStatusBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: 5,
-    },
-    availableStatus: {
-      backgroundColor: '#4CAF50',
-    },
-    outOfStockStatus: {
-      backgroundColor: '#F44336',
-    },
-    productStatusText: {
-      color: 'white',
-      fontWeight: 'bold',
-    },
-  }); 
+  headerContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  statsContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+  },
+  statCard: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6c757d',
+    textAlign: 'center',
+  },
+  stockStatsContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+    paddingTop: 12,
+  },
+  stockStatsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#495057',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sizeStatsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sizeStatItem: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  sizeStatText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#495057',
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    elevation: 5,
+    shadowColor: '#ff6b35',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  createButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+
+  productList: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  productListContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 20,
+  },
+  row: {
+    justifyContent: 'space-between',
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
+  },
+  loadingFooter: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 15,
+    color: '#666',
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 100,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 20,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: '#777',
+    marginTop: 6,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+  errorState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 100,
+  },
+  errorTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#ff6b35',
+    marginTop: 20,
+  },
+  errorSubtitle: {
+    fontSize: 16,
+    color: '#777',
+    marginTop: 6,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+
+  productCard: {
+    width: CARD_WIDTH,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    marginBottom: 18,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    overflow: 'hidden',
+  },
+  imageContainer: {
+    height: 150,
+    position: 'relative',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  availableBadge: {
+    backgroundColor: 'rgba(46, 204, 113, 0.9)',
+  },
+  outOfStockBadge: {
+    backgroundColor: 'rgba(231, 76, 60, 0.9)',
+  },
+  statusBadgeText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  productInfo: {
+    padding: 12,
+  },
+  productTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 8,
+    minHeight: 38,
+  },
+  priceAndStockRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  priceValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ff6b35',
+  },
+  stockValue: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+
+  sizesPreview: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  sizeChip: {
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  emptySizeChip: {
+    backgroundColor: '#ffebee',
+    borderColor: '#ffcdd2',
+  },
+  sizeText: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#333',
+  },
+  emptySizeText: {
+    color: '#ff6b35',
+    textDecorationLine: 'line-through',
+  },
+
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingBottom: 12,
+    paddingHorizontal: 12,
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
+  },
+  editButton: {
+    backgroundColor: '#ff6b35',
+  },
+  deleteButton: {
+    backgroundColor: '#ff4757',
+  },
+});

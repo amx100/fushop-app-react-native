@@ -30,11 +30,25 @@ export default function RootLayout() {
                 <Stack.Screen
                   name='cart'
                   options={{
+                    headerShown: false,
                     presentation: 'modal',
                     title: 'Shopping Cart',
                   }}
                 />
-                <Stack.Screen name='auth' options={{ headerShown: false }} />
+                <Stack.Screen
+                  name='auth'
+                  options={{ 
+                    headerShown: false,
+                    title: 'Authentication',
+                  }}
+                />
+                <Stack.Screen
+                  name='(shop)/edit-profile'
+                  options={{ 
+                    headerShown: false,
+                    title: 'Edit Profile',
+                  }}
+                />
                 <Stack.Screen
                   name='admin'
                   options={{ 

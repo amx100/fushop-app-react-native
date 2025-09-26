@@ -16,6 +16,7 @@ type AuthData = {
   mounting: boolean;
   user: any;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthData>({
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthData>({
   mounting: true,
   user: null,
   signOut: async () => {},
+  refreshUser: async () => {},
 });
 
 export default function AuthProvider({ children }: PropsWithChildren) {
@@ -61,6 +63,12 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     }
   };
 
+  const refreshUser = async () => {
+    if (session?.user?.id) {
+      await fetchUserData(session.user.id);
+    }
+  };
+
   const signOut = async () => {
     try {
       // Get current session before signing out
@@ -70,6 +78,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         // If no session, just clear the state
         setSession(null);
         setUser(null);
+        router.replace('/');
         return;
       }
 
@@ -80,8 +89,15 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       setSession(null);
       setUser(null);
       
+      // Redirect to home page after sign out
+      router.replace('/');
+      
     } catch (error) {
       console.error('Error in signOut:', error);
+      // Even if there's an error, clear state and redirect
+      setSession(null);
+      setUser(null);
+      router.replace('/');
       Alert.alert('Error', 'Failed to sign out completely. Please restart the app.');
     }
   };
@@ -125,6 +141,8 @@ export default function AuthProvider({ children }: PropsWithChildren) {
           
           if (event === 'SIGNED_OUT' || !currentSession) {
             setUser(null);
+            // Redirect to home page when signed out
+            router.replace('/');
           } else if (currentSession?.user?.id) {
             await fetchUserData(currentSession.user.id);
           }
@@ -139,18 +157,20 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  // Auto-redirect admin users when user data is loaded
+  // Simple redirect logic - only for admin users when not on auth page
   useEffect(() => {
     if (user && user.type === 'admin' && session && !isLoading) {
-      // Only redirect if not already on admin or auth page
+      // Only redirect if not already on admin page and not on auth page
       if (!pathname.includes('/admin') && !pathname.includes('/auth')) {
         router.replace('/admin');
       }
     }
-  }, [user, session, isLoading, pathname]);
+  }, [user, session, isLoading, pathname, router]);
+
+  // No auto-redirect to auth - users stay on main page when logged out
 
   return (
-    <AuthContext.Provider value={{ session, isLoading, mounting: isLoading, user, signOut }}>
+    <AuthContext.Provider value={{ session, isLoading, mounting: isLoading, user, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

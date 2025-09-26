@@ -15,7 +15,10 @@ import { getCategoryAndProducts } from '../../api/api';
 const Category = () => {
   const { slug } = useLocalSearchParams<{ slug: string }>();
 
+
   const { data, error, isLoading } = getCategoryAndProducts(slug);
+  
+ 
 
   if (isLoading) return <ActivityIndicator />;
   if (error || !data) return <Text>Error: {error?.message}</Text>;
@@ -30,7 +33,7 @@ const Category = () => {
         source={{ uri: category.imageurl || 'https://via.placeholder.com/400x200/cccccc/666666?text=No+Image', cache: 'force-cache' }} // Cache applied here
         style={styles.categoryImage}
       />
-      <Text style={styles.categoryName}>{category.name || 'Category'}</Text>
+  
       <FlatList
         data={products}
         keyExtractor={item => item.id.toString()}

@@ -9,15 +9,16 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
-import { Link, router, Stack } from 'expo-router';
+import { Link, router, Stack, useFocusEffect } from 'expo-router';
 // import { format } from 'date-fns';
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { Tables } from '../../../types/database.types';
 import { useAuth } from '../../../providers/auth-provider';
+import { useOrderNotifications } from '../../../hooks/useOrderNotifications';
 import { Ionicons } from '@expo/vector-icons';
 
-type OrderStatus = 'Pending' | 'Completed' | 'Shipped' | 'InTransit';
+type OrderStatus = 'čekanje' | 'Completed' | 'Shipped' | 'InTransit' | 'cancelled';
 
 // Safe date formatting function
 const formatDate = (dateString: string): string => {
@@ -41,6 +42,18 @@ const formatDate = (dateString: string): string => {
   }
 };
 
+// Function to get Serbian status labels
+const getStatusLabel = (status: string): string => {
+  const statusLabels: Record<string, string> = {
+    'čekanje': 'ČEKA',
+    'Completed': 'ZAVRŠENO',
+    'Shipped': 'POSLATO',
+    'InTransit': 'U TRANZITU',
+    'cancelled': 'OTKAZANO',
+  };
+  return statusLabels[status] || status.toUpperCase();
+};
+
 type OrderWithDetails = {
   id: number;
   slug: string;
@@ -48,11 +61,21 @@ type OrderWithDetails = {
   totalPrice: number;
   status: OrderStatus;
   user_email: string;
+  user: { 
+    email: string;
+    name?: string | null;
+    last_name?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    city?: string | null;
+  } | null;
   items: {
-    product_title: string;
-    product_image: string;
-    quantity: number;
+    product: {
+      title: string;
+      heroImage: string;
+    };
     size: string;
+    quantity: number;
   }[];
 };
 
@@ -80,19 +103,23 @@ const renderItem: ListRenderItem<OrderWithDetails> = ({ item }) => {
             <View style={styles.orderDetailsContainer}>
               <Text style={styles.orderItem}>
                 #{item.id || 'N/A'} {item.slug || 'N/A'}
-              </Text>
-              <Text style={styles.orderEmail}>Customer: {item.user_email || 'Unknown'}</Text>
+              </Text>           
               <Text style={styles.orderDetails}>
                 Total Price: ${formattedPrice}
               </Text>
+              {item.items && item.items.length > 0 && (
+                <Text style={styles.orderItems}>
+                  Items: {item.items.map(item => `${item.product.title} (${item.size}) x${item.quantity}`).join(', ')}
+                </Text>
+              )}
               <Text style={styles.orderDate}>
                 {formattedDate}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color="#888" />
           </View>
-          <View style={[styles.statusBadge, styles[`statusBadge_${item.status || 'Pending'}`]]}>
-            <Text style={styles.statusText}>{(item.status || 'PENDING').toUpperCase()}</Text>
+          <View style={[styles.statusBadge, styles[`statusBadge_${item.status || 'čekanje'}`]]}>
+            <Text style={styles.statusText}>{getStatusLabel(item.status || 'čekanje')}</Text>
           </View>
         </Pressable>
       </Link>
@@ -111,6 +138,7 @@ const renderItem: ListRenderItem<OrderWithDetails> = ({ item }) => {
 
 const Orders = () => {
   const { session } = useAuth();
+  const { unreadCount, markAllAsRead } = useOrderNotifications();
   const [orders, setOrders] = useState<OrderWithDetails[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -120,7 +148,7 @@ const Orders = () => {
    
     try {
       if (!session?.user?.id) {
-        console.warn('No user session found');
+        
         return null;
       }
 
@@ -137,7 +165,17 @@ const Orders = () => {
           created_at,
           totalprice,
           status,
-          user_id
+          user_id,
+          user:users(email, name, last_name, phone, address, city),
+          items:order_item(
+            quantity,
+            size,
+            product:product(
+              title,
+              heroimage,
+              price
+            )
+          )
         `)
         .order('created_at', { ascending: false });
 
@@ -172,9 +210,17 @@ const Orders = () => {
               slug: order.slug || `order-${order.id}`,
               created_at: order.created_at || new Date().toISOString(),
               totalPrice: Number(order.totalprice) || 0,
-              status: (order.status || 'Pending') as OrderStatus,
-              user_email: 'Customer', // Simplified for now
-              items: [], // Simplified for now
+              status: (order.status || 'čekanje') as OrderStatus,
+              user_email: order.user?.email || 'N/A',
+              user: order.user,
+              items: order.items?.map((item: any) => ({
+                product: {
+                  title: item.product?.title || 'Unknown Product',
+                  heroImage: item.product?.heroimage || '',
+                },
+                size: item.size,
+                quantity: item.quantity,
+              })) || [],
             };
             
          
@@ -204,12 +250,14 @@ const Orders = () => {
         setOrders(refreshedOrders);
         setIsLoading(false);
       }
+      // Mark notifications as read when refreshing
+      markAllAsRead();
     } catch (err) {
       setError(err as Error);
     } finally {
       setRefreshing(false);
     }
-  }, [fetchOrders]);
+  }, [fetchOrders, markAllAsRead]);
 
   useEffect(() => {
  
@@ -244,6 +292,24 @@ const Orders = () => {
     };
   }, [session, fetchOrders]);
 
+  // Refresh orders when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const refreshOnFocus = async () => {
+        try {
+          const refreshedOrders = await fetchOrders();
+          if (refreshedOrders) {
+            setOrders(refreshedOrders);
+          }
+        } catch (err) {
+          console.error('Error refreshing orders on focus:', err);
+        }
+      };
+      
+      refreshOnFocus();
+    }, [fetchOrders])
+  );
+
   if (!session) {
     return (
       <View style={styles.unauthenticatedContainer}>
@@ -253,7 +319,7 @@ const Orders = () => {
         </Text>
         <TouchableOpacity 
           style={styles.loginButton}
-          onPress={() => router.push('/auth')}
+          onPress={() => router.push('/')}
         >
           <Text style={styles.loginButtonText}>Prijavite se</Text>
         </TouchableOpacity>
@@ -280,7 +346,18 @@ const Orders = () => {
   try {
     return (
       <View style={styles.container}>
-        <Stack.Screen options={{ title: 'Orders' }} />
+        <Stack.Screen 
+          options={{ 
+            title: 'Orders',
+            headerRight: () => (
+              unreadCount > 0 ? (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationText}>{unreadCount}</Text>
+                </View>
+              ) : null
+            )
+          }} 
+        />
         <FlatList
           data={orders || []}
           keyExtractor={(item) => (item?.id ? item.id.toString() : Math.random().toString())}
@@ -346,6 +423,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#555',
   },
+  orderItems: {
+    fontSize: 12,
+    color: '#777',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
   orderDate: {
     fontSize: 12,
     color: '#888',
@@ -365,7 +448,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
-  statusBadge_Pending: {
+  statusBadge_čekanje: {
     backgroundColor: '#0A2463',
   },
   statusBadge_Completed: {
@@ -376,6 +459,9 @@ const styles = StyleSheet.create({
   },
   statusBadge_InTransit: {
     backgroundColor: '#ff9800',
+  },
+  statusBadge_cancelled: {
+    backgroundColor: '#dc2626',
   },
   loadingContainer: {
     flex: 1,
@@ -435,5 +521,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     padding: 10,
+  },
+  notificationBadge: {
+    backgroundColor: '#ff6b35',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: 16,
+  },
+  notificationText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

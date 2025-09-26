@@ -1,11 +1,11 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ActivityIndicator } from 'react-native';
 import { ProductList } from '../components/admin/ProductList';
 import { OrderList } from '../components/admin/OrderList';
 import { ModernProductModal } from '../components/admin/ProductModal';
 import { CategoryModal } from '../components/admin/CategoryModal';
 import { useAuth } from '../providers/auth-provider';
 import { useRouter } from 'expo-router';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Product, ProductFormData, Order, OrderStatus, Category, CategoryFormData, ProductSize, SizeType } from '../types/index';
 import { useAdminProducts } from '../hooks/useAdminProducts';
 import { useAdminOrders } from '../hooks/useAdminOrders';
@@ -37,7 +37,7 @@ const initialCategoryFormData: CategoryFormData = {
 };
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'categories' | 'sizes'>('products');
@@ -49,6 +49,7 @@ export default function AdminDashboard() {
   const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>(initialCategoryFormData);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
   const {
     products,
@@ -58,6 +59,7 @@ export default function AdminDashboard() {
     handleDeleteProduct,
     pickImage,
     tempImageUrl,
+    fixAllProductStatuses,
   } = useAdminProducts();
 
   const {
@@ -73,6 +75,15 @@ export default function AdminDashboard() {
     handleUpdateCategory,
     handleDeleteCategory,
   } = useAdminCategories();
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Prefetch all data when component mounts
   useEffect(() => {
@@ -101,8 +112,7 @@ export default function AdminDashboard() {
                   sizes:sizes(value)
                 )
               `)
-              .order('created_at', { ascending: false })
-              .limit(50); // Limit initial prefetch to 50 products
+              .order('created_at', { ascending: false });
 
             if (productsError) throw productsError;
 
@@ -179,6 +189,36 @@ export default function AdminDashboard() {
     prefetchAllData();
   }, [queryClient]);
 
+  // Automatically fix product statuses in background after products load
+  useEffect(() => {
+    if (products && products.length > 0) {
+      // Run status fix in background without blocking UI
+      const fixStatusesInBackground = async () => {
+        try {
+          // Check if any products have incorrect status
+          const needsFixing = products.some(product => {
+            const totalQuantity = product.sizes?.reduce((sum: number, size: any) => sum + (size.quantity || 0), 0) || 0;
+            const shouldBeAvailable = totalQuantity > 0;
+            const isAvailable = product.status === 'available';
+            return shouldBeAvailable !== isAvailable;
+          });
+
+          if (needsFixing) {
+            // Run fix in background
+            await fixAllProductStatuses();
+          }
+        } catch (error) {
+          console.error('Background status fix failed:', error);
+          // Don't show error to user, just log it
+        }
+      };
+
+      // Run after a short delay to not interfere with initial loading
+      const timeoutId = setTimeout(fixStatusesInBackground, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [products, fixAllProductStatuses]);
+
   // Background refetch when switching tabs (silent refresh)
   const handleTabSwitch = (tab: 'products' | 'orders' | 'categories' | 'sizes') => {
     setActiveTab(tab);
@@ -210,11 +250,9 @@ export default function AdminDashboard() {
 
   const handleSignOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
+      await signOut();
       Toast.show('Signed out successfully', { type: 'success' });
-      router.replace('/auth');
+      // Redirect will be handled by auth provider
     } catch (error) {
       Toast.show('Error signing out: ' + (error as Error).message, { 
         type: 'error' 
@@ -265,44 +303,47 @@ export default function AdminDashboard() {
     setFormData(prev => ({ ...prev, ...changes }));
   };
 
+
   // Memoized filtered data to prevent unnecessary re-calculations
   const filteredProducts = useMemo(() => {
     if (!products) return [];
-    if (!searchQuery.trim()) return products;
+    if (!debouncedSearchQuery.trim()) return products;
     
-    const query = searchQuery.toLowerCase();
-    return products.filter(product => 
-      product.title.toLowerCase().includes(query) ||
-      product.slug.toLowerCase().includes(query)
-    );
-  }, [products, searchQuery]);
+    const query = debouncedSearchQuery.toLowerCase().trim();
+    return products.filter(product => {
+      const title = (product.title || '').toLowerCase();
+      const slug = (product.slug || '').toLowerCase();
+      return title.includes(query) || slug.includes(query);
+    });
+  }, [products, debouncedSearchQuery]);
 
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
-    if (!searchQuery.trim()) return orders;
+    if (!debouncedSearchQuery.trim()) return orders;
     
-    const searchLower = searchQuery.toLowerCase();
+    const searchLower = debouncedSearchQuery.toLowerCase();
     
     return orders.filter(order => {
       // Search by order slug/ID
-      const slugMatch = order.slug.toLowerCase().includes(searchLower);
+      const slugMatch = (order.slug?.toLowerCase() || '').includes(searchLower);
       // Pretraga po e-pošti kupca
-      const emailMatch = typeof order.user_email === 'object' && order.user_email.email.toLowerCase().includes(searchLower) || false;
+      const emailMatch = typeof order.user_email === 'object' && 
+        (order.user_email?.email?.toLowerCase() || '').includes(searchLower) || false;
       
       return slugMatch || emailMatch;
     });
-  }, [orders, searchQuery]);
+  }, [orders, debouncedSearchQuery]);
 
   const filteredCategories = useMemo(() => {
     if (!categories) return [];
-    if (!searchQuery.trim()) return categories;
+    if (!debouncedSearchQuery.trim()) return categories;
     
-    const query = searchQuery.toLowerCase();
+    const query = debouncedSearchQuery.toLowerCase();
     return categories.filter(category => 
       (category.name?.toLowerCase() || '').includes(query) ||
-      category.slug.toLowerCase().includes(query)
+      (category.slug?.toLowerCase() || '').includes(query)
     );
-  }, [categories, searchQuery]);
+  }, [categories, debouncedSearchQuery]);
 
   return (
     <View style={styles.container}>
@@ -378,14 +419,26 @@ export default function AdminDashboard() {
               <Ionicons name="close-circle" size={20} color="#666" />
             </TouchableOpacity>
           )}
+          {searchQuery !== debouncedSearchQuery && (
+            <View style={styles.searchLoading}>
+              <ActivityIndicator size="small" color="#666" />
+            </View>
+          )}
         </View>
       )}
 
       {activeTab === 'products' && (
         <>
+          {searchQuery && (
+            <View style={styles.searchResultsContainer}>
+              <Text style={styles.searchResultsText}>
+                {filteredProducts?.length || 0} od {products?.length || 0} proizvoda
+              </Text>
+            </View>
+          )}
           {productsLoading ? (
             <ProductListSkeleton />
-          ) : (
+          ) : products && products.length > 0 ? (
             <ProductList
               products={filteredProducts || []}
               isLoading={productsLoading}
@@ -393,6 +446,10 @@ export default function AdminDashboard() {
               onDelete={handleDeleteProduct}
               onCreateNew={handleCreateNew}
             />
+          ) : (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>Greška pri učitavanju proizvoda</Text>
+            </View>
           )}
         </>
       )}
@@ -603,5 +660,31 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 4,
+  },
+  searchLoading: {
+    padding: 4,
+  },
+  searchResultsContainer: {
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  searchResultsText: {
+    fontSize: 14,
+    color: '#6c757d',
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff6b35',
+    textAlign: 'center',
   },
 });
