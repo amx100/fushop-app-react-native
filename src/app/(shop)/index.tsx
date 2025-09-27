@@ -436,7 +436,6 @@ export default function ShopIndex() {
       setCategories(categoriesData || []);
       setProducts(productsData || []);
     } catch (err: any) {
-      console.error('Error fetching data:', err);
       setError(err.message || 'Unknown error');
     } finally {
       setIsLoading(false);

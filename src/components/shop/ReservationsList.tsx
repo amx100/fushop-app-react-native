@@ -11,12 +11,8 @@ interface ReservationsListProps {
 export const ReservationsList: React.FC<ReservationsListProps> = ({ onReservationPress }) => {
   const { reservations, loading, cancelReservation, confirmReservation, fetchReservations } = useReservations();
   
-  console.log('ReservationsList - reservations:', reservations);
-  console.log('ReservationsList - loading:', loading);
-  
   // Force refresh on mount
   React.useEffect(() => {
-    console.log('ReservationsList - force refresh on mount');
     fetchReservations();
   }, []);
 
@@ -121,7 +117,6 @@ export const ReservationsList: React.FC<ReservationsListProps> = ({ onReservatio
   };
 
   if (loading) {
-    console.log('ReservationsList - showing loading state');
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Učitavanje rezervacija...</Text>
@@ -130,7 +125,6 @@ export const ReservationsList: React.FC<ReservationsListProps> = ({ onReservatio
   }
 
   if (reservations.length === 0) {
-    console.log('ReservationsList - showing empty state');
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="calendar-outline" size={64} color="#ccc" />

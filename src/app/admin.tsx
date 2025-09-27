@@ -215,7 +215,6 @@ export default function AdminDashboard() {
             await fixAllProductStatuses();
           }
         } catch (error) {
-          console.error('Background status fix failed:', error);
           // Don't show error to user, just log it
         }
       };
@@ -228,10 +227,10 @@ export default function AdminDashboard() {
 
   // Dashboard statistics calculation
   const dashboardStats = useMemo(() => {
-    console.log('📊 Dashboard Stats - products:', products?.length, 'orders:', orders?.length, 'categories:', categories?.length);
+   
     
     if (!products || !orders || !categories) {
-      console.log('⚠️ Dashboard Stats - Missing data, returning defaults');
+     
       return {
         totalProducts: 0,
         availableProducts: 0,
@@ -277,17 +276,7 @@ export default function AdminDashboard() {
 
     const totalStock = Object.values(sizeStats).reduce((sum: number, qty: any) => sum + (qty as number), 0);
 
-    console.log('✅ Dashboard Stats - Calculated:', {
-      totalProducts,
-      availableProducts,
-      outOfStockProducts,
-      totalOrders,
-      pendingOrders,
-      completedOrders,
-      totalCategories,
-      totalRevenue,
-      totalStock
-    });
+   
 
     return {
       totalProducts,
@@ -323,7 +312,7 @@ export default function AdminDashboard() {
   // Auto-refresh dashboard when returning from other tabs
   useEffect(() => {
     if (activeTab === 'dashboard') {
-      console.log('🔄 Dashboard activated - refreshing data...');
+     
       
       // Force refresh svih podataka
       Promise.all([
@@ -331,40 +320,39 @@ export default function AdminDashboard() {
         queryClient.invalidateQueries({ queryKey: ['admin-orders'] }),
         queryClient.invalidateQueries({ queryKey: ['categories'] })
       ]).then(() => {
-        console.log('✅ Dashboard data refreshed');
+      
       });
     }
   }, [activeTab, queryClient]);
 
   // Background refetch when switching tabs (silent refresh)
   const handleTabSwitch = (tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'sizes' | 'reservations') => {
-    console.log('🔄 handleTabSwitch: Switching to tab:', tab);
+  
     setActiveTab(tab);
     setIsMenuOpen(false); // Close menu when switching tabs
     
     // Force refresh za svaki tab
     switch (tab) {
       case 'dashboard':
-        console.log('🔄 handleTabSwitch: Refreshing dashboard data...');
+       
         // Za dashboard refresh sve
         queryClient.invalidateQueries({ queryKey: ['admin-products'] });
         queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
         queryClient.invalidateQueries({ queryKey: ['categories'] });
         break;
       case 'products':
-        console.log('🔄 handleTabSwitch: Refreshing products data...');
+       
         queryClient.invalidateQueries({ queryKey: ['admin-products'] });
         break;
       case 'orders':
-        console.log('🔄 handleTabSwitch: Refreshing orders data...');
+       
         queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
         break;
-      case 'categories':
-        console.log('🔄 handleTabSwitch: Refreshing categories data...');
+      case 'categories':    
         queryClient.invalidateQueries({ queryKey: ['categories'] });
         break;
       case 'reservations':
-        console.log('🔄 handleTabSwitch: Reservations component will fetch its own data');
+        
         // Reservations component će fetchovati svoje podatke
         break;
     }
@@ -423,7 +411,6 @@ export default function AdminDashboard() {
       setIsModalVisible(false);
       setFormData(initialFormData);
     } catch (error) {
-      console.error('Error submitting product:', error);
     }
   };
 
@@ -515,7 +502,7 @@ export default function AdminDashboard() {
         <TouchableOpacity 
           style={styles.refreshButton}
           onPress={async () => {
-            console.log('🔄 Manual refresh: Starting...');
+            
             setIsRefreshing(true);
             try {
               await Promise.all([
@@ -531,10 +518,10 @@ export default function AdminDashboard() {
                 queryClient.refetchQueries({ queryKey: ['categories'] })
               ]);
               
-              console.log('✅ Manual refresh: Data refreshed successfully');
+             
               Toast.show('Podaci su osveženi', { type: 'success' });
             } catch (error) {
-              console.error('❌ Manual refresh: Error refreshing data:', error);
+             
               Toast.show('Greška pri osvežavanju podataka', { type: 'error' });
             } finally {
               setIsRefreshing(false);
@@ -1045,7 +1032,7 @@ export default function AdminDashboard() {
 
       {activeTab === 'reservations' && (
         <>
-          {console.log('Admin - rendering ReservationsManagement component')}
+         
           <ReservationsManagement />
         </>
       )}

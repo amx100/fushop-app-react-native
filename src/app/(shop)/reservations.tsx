@@ -9,7 +9,6 @@ export default function ReservationsPage() {
   const router = useRouter();
   const [selectedReservation, setSelectedReservation] = useState<ReservationWithItems | null>(null);
   
-  console.log('ReservationsPage - component mounted');
 
   const handleReservationPress = (reservation: ReservationWithItems) => {
     setSelectedReservation(reservation);

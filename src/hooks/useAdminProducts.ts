@@ -75,7 +75,6 @@ export function useAdminProducts() {
         });
 
       if (error) {
-        console.error('Supabase upload error:', error);
         throw error;
       }
 
@@ -88,7 +87,6 @@ export function useAdminProducts() {
         return publicUrl;
       }
     } catch (error) {
-      console.error('Image upload error:', error);
       Toast.show('Failed to upload image', { type: 'error' });
       return null;
     }
@@ -133,7 +131,6 @@ export function useAdminProducts() {
         }
       }
     } catch (error: any) {
-      console.error('Image picking error:', error);
       alert('Error picking image: ' + error.message);
     }
     return null;
@@ -423,7 +420,6 @@ export function useAdminProducts() {
 
       if (updateError) throw updateError;
     } catch (error) {
-      console.error('Error updating product status:', error);
       throw error;
     }
   };
@@ -449,7 +445,6 @@ export function useAdminProducts() {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       Toast.show('All product statuses updated', { type: 'success' });
     } catch (error) {
-      console.error('Error fixing product statuses:', error);
       Toast.show('Error fixing product statuses', { type: 'error' });
     }
   };

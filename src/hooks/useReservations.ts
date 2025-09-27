@@ -10,20 +10,16 @@ export const useReservations = () => {
 
   const fetchReservations = async () => {
     if (!user) {
-      console.log('No user found, skipping fetchReservations');
       return;
     }
     
-    console.log('Fetching reservations for user:', user.id);
     setLoading(true);
     setError(null);
     
     try {
       const data = await ReservationService.getUserReservations(user.id);
-      console.log('Reservations fetched:', data);
       setReservations(data);
     } catch (err) {
-      console.error('Error fetching reservations:', err);
       setError('Greška pri učitavanju rezervacija');
     } finally {
       setLoading(false);
@@ -53,7 +49,6 @@ export const useReservations = () => {
     } catch (err) {
       const errorMsg = 'Greška pri kreiranje rezervacije';
       setError(errorMsg);
-      console.error('Error creating reservation:', err);
       return { success: false, error: errorMsg };
     } finally {
       setLoading(false);
@@ -80,7 +75,6 @@ export const useReservations = () => {
     } catch (err) {
       const errorMsg = 'Greška pri otkazivanju rezervacije';
       setError(errorMsg);
-      console.error('Error cancelling reservation:', err);
       return { success: false, error: errorMsg };
     } finally {
       setLoading(false);
@@ -107,7 +101,6 @@ export const useReservations = () => {
     } catch (err) {
       const errorMsg = 'Greška pri potvrđivanju rezervacije';
       setError(errorMsg);
-      console.error('Error confirming reservation:', err);
       return { success: false, error: errorMsg };
     } finally {
       setLoading(false);
@@ -120,17 +113,14 @@ export const useReservations = () => {
     try {
       return await ReservationService.checkEligibility(user.id);
     } catch (err) {
-      console.error('Error checking eligibility:', err);
       return false;
     }
   };
 
   useEffect(() => {
     if (user) {
-      console.log('User found, fetching reservations...');
       fetchReservations();
     } else {
-      console.log('No user found, clearing reservations');
       setReservations([]);
     }
   }, [user]);

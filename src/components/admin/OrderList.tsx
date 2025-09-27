@@ -99,7 +99,6 @@ const formatDate = (dateString: string): string => {
       day: '2-digit',
     }).format(date);
   } catch (error) {
-    console.error('Greška pri formatiranju datuma:', error);
     return 'Greška u datumu';
   }
 };

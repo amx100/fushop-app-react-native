@@ -15,17 +15,14 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
-  console.log('ReservationsManagement - component mounted');
-  console.log('ReservationsManagement - reservations:', reservations);
-  console.log('ReservationsManagement - loading:', loading);
 
   const fetchReservations = async () => {
-    console.log('ReservationsManagement - fetchReservations called');
+   
     setLoading(true);
     try {
       // Check current user
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('ReservationsManagement - current user:', user);
+     
       
       // Check if user is admin by type
       const { data: userData, error: userError } = await supabase
@@ -35,9 +32,7 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
         .single();
       
       const isAdmin = userData?.type === 'ADMIN' || userData?.type === 'admin';
-      console.log('ReservationsManagement - user type:', userData?.type, 'is admin:', isAdmin, userError);
-      
-      console.log('ReservationsManagement - making Supabase query...');
+
       const { data, error } = await supabase
         .from('reservations')
         .select(`
@@ -56,7 +51,7 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
         `)
         .order('reservation_date', { ascending: true });
 
-      console.log('ReservationsManagement - Supabase query result:', { data, error });
+   
 
       if (error) {
         console.error('Error fetching reservations:', error);
@@ -64,7 +59,7 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
         return;
       }
 
-      console.log('ReservationsManagement - setting reservations:', data || []);
+     
       setReservations(data || []);
     } catch (error) {
       console.error('Error fetching reservations:', error);
@@ -90,7 +85,6 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
           text: 'Potvrdi i procesuiraj',
           onPress: async () => {
             try {
-              console.log('🔄 Confirming and processing reservation:', reservationId);
               
               // Pozovi Supabase funkciju za procesiranje rezervacije
               const { data, error } = await supabase.functions.invoke('process-reservations', {
@@ -103,7 +97,6 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
                 return;
               }
 
-              console.log('✅ Reservation processed successfully:', data);
               Alert.alert('Uspešno', 'Rezervacija je potvrđena i procesuirana. Narudžbina je kreirana.');
               fetchReservations();
               // Refresh dashboard data when reservation is processed (creates new order)
@@ -168,11 +161,9 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
           text: 'Procesiraj',
           onPress: async () => {
             try {
-              console.log('Processing reservations...');
               
               // Get today's date
               const today = new Date().toISOString().split('T')[0];
-              console.log('Today:', today);
               
               // Get pending reservations for today
               const { data: reservations, error: fetchError } = await supabase
@@ -187,7 +178,6 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
                 return;
               }
               
-              console.log('Found reservations to process:', reservations?.length || 0);
               
               if (!reservations || reservations.length === 0) {
                 Alert.alert('Info', 'Nema rezervacija za procesiranje danas');
@@ -200,7 +190,6 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
               
               for (const reservation of reservations) {
                 try {
-                  console.log('Processing reservation:', reservation.id);
                   
                   // Create order from reservation using RPC
                   const { data: orderId, error: rpcError } = await supabase.rpc('create_order_from_reservation', {
@@ -211,7 +200,6 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
                     console.error('Error creating order for reservation:', reservation.id, rpcError);
                     errors++;
                   } else {
-                    console.log('Order created:', orderId);
                     processed++;
                   }
                 } catch (error) {
@@ -250,7 +238,6 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
           text: 'Otkaži rezervacije',
           onPress: async () => {
             try {
-              console.log('Cancelling unconfirmed reservations...');
               
               // Use RPC function to cancel unconfirmed reservations
               const { data: cancelledCount, error: rpcError } = await supabase.rpc('cancel_unconfirmed_reservations');
@@ -261,7 +248,6 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
                 return;
               }
 
-              console.log('Cancelled reservations count:', cancelledCount);
               
               Alert.alert(
                 'Uspešno',
@@ -326,12 +312,10 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
   };
 
   useEffect(() => {
-    console.log('ReservationsManagement - useEffect called, fetching reservations...');
     fetchReservations();
   }, []);
 
   if (loading) {
-    console.log('ReservationsManagement - showing loading state');
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Učitavanje rezervacija...</Text>
@@ -339,7 +323,6 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
     );
   }
 
-  console.log('ReservationsManagement - rendering with reservations:', reservations.length);
   
   return (
     <View style={styles.container}>

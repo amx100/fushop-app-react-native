@@ -72,7 +72,6 @@ export const useOrderNotifications = () => {
 
       setUnreadCount(updatedOrders.length);
     } catch (error) {
-      console.error('Error fetching unread count:', error);
     }
   };
 

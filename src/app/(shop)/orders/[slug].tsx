@@ -25,7 +25,6 @@ const formatDate = (dateString: string): string => {
     const year = date.getFullYear();
     return `${month} ${day}, ${year}`;
   } catch (error) {
-    console.error('Date formatting error:', error);
     return 'Date error';
   }
 };
@@ -73,18 +72,14 @@ const OrderDetails = () => {
             .single();
 
           if (error) {
-            console.error('Shipping option query error:', error);
             setShippingError(`Failed to load shipping option: ${error.message}`);
           } else {
-            console.warn('No shipping option found for ID:', orderData.shipping_id);
             setShippingError('Shipping option not found');
           }
         } else {
-          console.warn('No shipping_id found in order data');
          
         }
       } catch (error) {
-        console.error('Error fetching shipping option:', error);
         setShippingError('Failed to load shipping information');
       } finally {
         setShippingLoading(false);
@@ -144,7 +139,6 @@ const OrderDetails = () => {
     }
     
     // Final fallback - but this indicates a data issue
-    console.warn('Unable to determine shipping cost, using 0');
     return 0;
   };
 

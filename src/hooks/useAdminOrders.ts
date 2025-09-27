@@ -55,16 +55,13 @@ export function useAdminOrders() {
 
       if (updateError) throw updateError;
       
-      console.log(`📊 Product ${productId} status updated: ${totalQuantity > 0 ? 'available' : 'out_of_stock'} (total quantity: ${totalQuantity})`);
     } catch (error) {
-      console.error('❌ Error updating product status:', error);
       throw error;
     }
   };
 
   // Manual inventory restoration function (backup for trigger)
   const restoreInventoryManually = async (orderId: number) => {
-    console.log('🔄 Starting manual inventory restoration for order:', orderId);
     try {
       // Fetch order items with fallback for old data structure
       const { data: orderItems, error: itemsError } = await supabase
@@ -73,16 +70,13 @@ export function useAdminOrders() {
         .eq('order_id', orderId);
 
       if (itemsError) {
-        console.error('❌ Error fetching order items:', itemsError);
         throw new Error('Failed to fetch order items');
       }
 
       if (!orderItems || orderItems.length === 0) {
-        console.log('⚠️ No items found for order:', orderId);
         return;
       }
 
-      console.log('📦 Found', orderItems.length, 'items to restore');
 
       // For each item, restore inventory
       for (const item of orderItems) {
@@ -91,16 +85,9 @@ export function useAdminOrders() {
         const sizeId = item.size_id;
         
         if (!productId || !sizeId) {
-          console.warn('⚠️ Skipping item with invalid IDs:', { 
-            product_id: item.product_id, 
-            product: item.product, 
-            size_id: item.size_id,
-            size: item.size 
-          });
           continue;
         }
 
-        console.log('🔄 Processing item:', { productId, sizeId, quantity: item.quantity });
 
         try {
           // Get current quantity BEFORE restoration
@@ -112,21 +99,19 @@ export function useAdminOrders() {
             .single();
 
           if (fetchError) {
-            console.error('❌ Error fetching current quantity:', fetchError);
             continue;
           }
 
           if (!currentData) {
-            console.warn('⚠️ No current data found for product:', productId, 'size:', sizeId);
             continue;
           }
 
-          console.log(`🔍 BEFORE restoration - Product ${productId}, Size ${sizeId}: Current quantity = ${currentData.quantity}`);
+         
 
           // Calculate new quantity - restore to original quantity
           // The original quantity should be current + ordered quantity
           const originalQuantity = (currentData.quantity || 0) + item.quantity;
-          console.log(`📊 Product ${productId}, Size ${sizeId}: Current ${currentData.quantity} + Ordered ${item.quantity} = Original ${originalQuantity}`);
+         
 
           // Update quantity to original quantity
           const { error: updateError } = await supabase
@@ -151,10 +136,10 @@ export function useAdminOrders() {
           if (verifyError) {
             console.error('❌ Error verifying updated quantity:', verifyError);
           } else {
-            console.log(`🔍 AFTER restoration - Product ${productId}, Size ${sizeId}: New quantity = ${updatedData?.quantity}`);
+           
           }
 
-          console.log(`✅ Restored to original quantity for product ${productId}, size ${sizeId}`);
+         
           
           // Update product status after inventory change
           try {
