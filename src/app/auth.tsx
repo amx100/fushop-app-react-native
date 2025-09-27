@@ -2,34 +2,29 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
-  Platform,
-  StatusBar,
+  StyleSheet,
+  ScrollView,
   Alert,
-  Dimensions,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useForm, Controller } from 'react-hook-form';
-import * as zod from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { router } from 'expo-router';
+import { authSchema, registrationSchema } from '../lib/auth';
 
-// Get screen dimensions
-const { width, height } = Dimensions.get('window');
-
-// Authentication Schema
-const authSchema = zod.object({
-  email: zod.string().email('Invalid email address'),
-  password: zod.string().min(6, 'Password must be at least 6 characters'),
-});
-
-export default function MorphismAuthScreen() {
+export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
-  const { control, handleSubmit, formState: { errors } } = useForm({
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  const loginForm = useForm({
     resolver: zodResolver(authSchema),
     defaultValues: {
       email: '',
@@ -37,140 +32,349 @@ export default function MorphismAuthScreen() {
     },
   });
 
-  const handleSignIn = async (data: any) => {
+  const registrationForm = useForm({
+    resolver: zodResolver(registrationSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+      firstName: '',
+      lastName: '',
+    },
+  });
+
+  const handleLogin = async (data: any) => {
     try {
-      if (isLogin) {
-        // Handle login
-        const { data: authData, error } = await supabase.auth.signInWithPassword({
-          email: data.email,
-          password: data.password,
-        });
+      setIsLoading(true);
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
 
-        if (error) throw error;
-
-        if (authData.session) {
-          // Check user type
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('type')
-            .eq('id', authData.session.user.id)
-            .single();
-
-          if (userError) throw userError;
-
-          // Redirect based on user type
-          if (userData?.type === 'admin') {
-            router.replace('/admin');
-          } else {
-            router.replace('/(shop)');
-          }
-        }
-      } else {
-        // Handle sign up
-        const { error } = await supabase.auth.signUp({
-          email: data.email,
-          password: data.password,
-        });
-
-        if (error) throw error;
-
-        Alert.alert(
-          "Success!",
-          "Account created successfully! Please check your email for verification and sign in.",
-          [{ text: "OK", onPress: () => setIsLogin(true) }]
-        );
-      }
+      if (error) throw error;
+      Alert.alert('Uspeh', 'Prijavljeni ste!');
+      router.replace('/(shop)');
     } catch (error: any) {
-      Alert.alert(
-        isLogin ? 'Login Failed' : 'Sign Up Failed',
-        error.message
-      );
+      Alert.alert('Greška', error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const handleRegistration = async (data: any) => {
+    try {
+      setIsLoading(true);
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (error) throw error;
+
+      // Create user profile in users table
+      if (authData.user) {
+        // Check if user profile already exists to avoid duplicate key errors
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (!existingUser) {
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert({
+              id: authData.user.id,
+              email: data.email,
+              name: data.firstName,
+              last_name: data.lastName,
+              type: 'customer',
+            });
+
+          if (profileError) {
+            console.error('Error creating user profile:', profileError);
+            // If it's a duplicate key error, the user might already exist
+            if (profileError.code === '23505') {
+              Alert.alert('Greška', 'Nalog sa ovim email-om već postoji. Pokušajte da se prijavite.');
+              return;
+            }
+            // For other profile errors, still show success for auth but warn about profile
+            Alert.alert('Upozorenje', 'Nalog je kreiran, ali postoji problem sa vašim profilom. Molimo vas da kontaktirate podršku.');
+          }
+        }
+      }
+
+      Alert.alert('Uspeh', 'Nalog je kreiran! Molimo vas da proverite svoj email da biste verifikovali nalog.');
+      router.replace('/(shop)');
+    } catch (error: any) {
+      // Handle specific Supabase auth errors
+      if (error?.message?.includes('already registered')) {
+        Alert.alert('Greška', 'Nalog sa ovim email-om već postoji. Pokušajte da se prijavite.');
+      } else {
+        Alert.alert('Greška', error.message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
+    loginForm.reset();
+    registrationForm.reset();
+  };
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <LinearGradient
-        colors={['#6a11cb', '#2575fc']}
-        style={styles.background}
+        colors={['#ff9a56', '#ff6b35']}
+        style={styles.gradient}
       >
-        <BlurView 
-          intensity={20}  
-          style={styles.blurContainer}
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.authContainer}>
-            <Text style={styles.title}>Welcome</Text>
-            <Text style={styles.subtitle}>
-              {isLogin ? 'Sign in to continue' : 'Create an account'}
+          <View style={styles.header}>
+            <Text style={styles.title}>
+              {isLogin ? 'Dobrodošli' : 'Kreirajte nalog'}
             </Text>
+            <Text style={styles.subtitle}>
+              {isLogin ? 'Prijavite se da biste nastavili' : 'Kreirajte nalog da biste započeli'}
+            </Text>
+          </View>
 
-            <Controller
-              control={control}
-              name="email"
-              render={({ field: { onChange, value } }) => (
+          <View style={styles.formContainer}>
+            {isLogin ? (
+              <View style={styles.form}>
                 <View style={styles.inputContainer}>
-                  <TextInput
-                    placeholder="Email"
-                    placeholderTextColor="rgba(255,255,255,0.6)"
-                    style={styles.input}
-                    onChangeText={onChange}
-                    value={value}
-                    autoCapitalize="none"
-                  />
-                  {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
+                  <Text style={styles.label}>Email</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+                    <Controller
+                      control={loginForm.control}
+                      name="email"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Unesite email"
+                          value={value}
+                          onChangeText={onChange}
+                          onBlur={onBlur}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          autoComplete="email"
+                        />
+                      )}
+                    />
+                  </View>
+                  {loginForm.formState.errors.email && (
+                    <Text style={styles.errorText}>{loginForm.formState.errors.email.message}</Text>
+                  )}
                 </View>
-              )}
-            />
 
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, value } }) => (
                 <View style={styles.inputContainer}>
-                  <TextInput
-                    placeholder="Password"
-                    placeholderTextColor="rgba(255,255,255,0.6)"
-                    style={styles.input}
-                    onChangeText={onChange}
-                    value={value}
-                    secureTextEntry
-                    autoCapitalize="none"
-                  />
-                  {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
+                  <Text style={styles.label}>Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+                    <Controller
+                      control={loginForm.control}
+                      name="password"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter your password"
+                          value={value}
+                          onChangeText={onChange}
+                          onBlur={onBlur}
+                          secureTextEntry
+                          autoComplete="password"
+                        />
+                      )}
+                    />
+                  </View>
+                  {loginForm.formState.errors.password && (
+                    <Text style={styles.errorText}>{loginForm.formState.errors.password.message}</Text>
+                  )}
                 </View>
-              )}
-            />
 
-            <TouchableOpacity 
-              style={styles.button} 
-              onPress={handleSubmit(handleSignIn)}
-            >
-              <LinearGradient 
-                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']} 
-                style={styles.buttonBackground}
-              >
-                <Text style={styles.buttonText}>
-                  {isLogin ? 'Sign In' : 'Sign Up'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.submitButton}
+                  onPress={loginForm.handleSubmit(handleLogin)}
+                  disabled={isLoading}
+                >
+                  <LinearGradient
+                    colors={['#ff6b35', '#ff4757']}
+                    style={styles.submitButtonGradient}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="white" />
+                    ) : (
+                      <Text style={styles.submitButtonText}>Sign In</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.form}>
+                <View style={styles.nameRow}>
+                  <View style={[styles.inputContainer, styles.halfWidth]}>
+                    <Text style={styles.label}>First Name</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
+                      <Controller
+                        control={registrationForm.control}
+                        name="firstName"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <TextInput
+                            style={styles.input}
+                            placeholder="First name"
+                            value={value}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                            autoCapitalize="words"
+                            autoComplete="given-name"
+                          />
+                        )}
+                      />
+                    </View>
+                    {registrationForm.formState.errors.firstName && (
+                      <Text style={styles.errorText}>{registrationForm.formState.errors.firstName.message}</Text>
+                    )}
+                  </View>
 
-            <TouchableOpacity 
-              onPress={() => setIsLogin(!isLogin)}
-              style={styles.switchContainer}
-            >
-              <Text style={styles.switchText}>
-                {isLogin 
-                  ? "Don't have an account? Sign up" 
-                  : "Already have an account? Sign in"}
+                  <View style={[styles.inputContainer, styles.halfWidth]}>
+                    <Text style={styles.label}>Last Name</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
+                      <Controller
+                        control={registrationForm.control}
+                        name="lastName"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <TextInput
+                            style={styles.input}
+                            placeholder="Last name"
+                            value={value}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                            autoCapitalize="words"
+                            autoComplete="family-name"
+                          />
+                        )}
+                      />
+                    </View>
+                    {registrationForm.formState.errors.lastName && (
+                      <Text style={styles.errorText}>{registrationForm.formState.errors.lastName.message}</Text>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Email</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+                    <Controller
+                      control={registrationForm.control}
+                      name="email"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter your email"
+                          value={value}
+                          onChangeText={onChange}
+                          onBlur={onBlur}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          autoComplete="email"
+                        />
+                      )}
+                    />
+                  </View>
+                  {registrationForm.formState.errors.email && (
+                    <Text style={styles.errorText}>{registrationForm.formState.errors.email.message}</Text>
+                  )}
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+                    <Controller
+                      control={registrationForm.control}
+                      name="password"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter your password"
+                          value={value}
+                          onChangeText={onChange}
+                          onBlur={onBlur}
+                          secureTextEntry
+                          autoComplete="new-password"
+                        />
+                      )}
+                    />
+                  </View>
+                  {registrationForm.formState.errors.password && (
+                    <Text style={styles.errorText}>{registrationForm.formState.errors.password.message}</Text>
+                  )}
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Potvrdite lozinku</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+                    <Controller
+                      control={registrationForm.control}
+                      name="confirmPassword"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Potvrdite lozinku"
+                          value={value}
+                          onChangeText={onChange}
+                          onBlur={onBlur}
+                          secureTextEntry
+                          autoComplete="new-password"
+                        />
+                      )}
+                    />
+                  </View>
+                  {registrationForm.formState.errors.confirmPassword && (
+                    <Text style={styles.errorText}>{registrationForm.formState.errors.confirmPassword.message}</Text>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.submitButton}
+                  onPress={registrationForm.handleSubmit(handleRegistration)}
+                  disabled={isLoading}
+                >
+                  <LinearGradient
+                    colors={['#ff6b35', '#ff4757']}
+                    style={styles.submitButtonGradient}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="white" />
+                    ) : (
+                      <Text style={styles.submitButtonText}>Sign Up</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.switchButton} onPress={toggleMode}>
+              <Text style={styles.switchButtonText}>
+                {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
               </Text>
             </TouchableOpacity>
           </View>
-        </BlurView>
+        </ScrollView>
       </LinearGradient>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -178,90 +382,107 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  background: {
+  gradient: {
     flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 40,
   },
-  blurContainer: {
-    width: width * 0.9,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    ...Platform.select({
-      ios: {
-        shadowColor: 'rgba(0,0,0,0.3)',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
-  authContainer: {
-    padding: 25,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  header: {
     alignItems: 'center',
+    marginBottom: 40,
   },
   title: {
-    fontSize: 28,
-    color: 'white',
+    fontSize: 32,
     fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
     textAlign: 'center',
-    marginBottom: 10,
-    opacity: 0.9,
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
-    marginBottom: 20,
+    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
   },
+  formContainer: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  form: {
+    gap: 16,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfWidth: {
+    flex: 1,
+  },
   inputContainer: {
-    width: '100%',
-    marginBottom: 15,
+    gap: 8,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    backgroundColor: '#f9f9f9',
+    paddingHorizontal: 16,
+  },
+  inputIcon: {
+    marginRight: 12,
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    padding: 15,
-    color: 'white',
+    flex: 1,
+    paddingVertical: 12,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    color: '#333',
   },
   errorText: {
-    color: '#ff4d4d',
-    fontSize: 12,
-    marginTop: 5,
-    opacity: 0.8,
-    alignSelf: 'flex-start',
-  },
-  button: {
-    width: '100%',
-    marginTop: 10,
-  },
-  buttonBackground: {
-    padding: 15,
-    alignItems: 'center',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    opacity: 0.9,
-  },
-  switchContainer: {
-    marginTop: 15,
-  },
-  switchText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: '#ff4757',
     fontSize: 14,
-    textDecorationLine: 'underline',
+    marginTop: 4,
+  },
+  submitButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  submitButtonGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  switchButton: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginTop: 8,
+  },
+  switchButtonText: {
+    color: '#ff6b35',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

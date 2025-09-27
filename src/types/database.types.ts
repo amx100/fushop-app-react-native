@@ -396,6 +396,109 @@ export type Database = {
         };
         Relationships: []
       }
+      reservations: {
+        Row: {
+          id: number;
+          user_id: string;
+          reservation_date: string;
+          status: string;
+          created_at: string;
+          updated_at: string;
+          confirmed_at: string | null;
+          expires_at: string | null;
+          order_id: number | null;
+          notes: string | null;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          reservation_date: string;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+          confirmed_at?: string | null;
+          expires_at?: string | null;
+          order_id?: number | null;
+          notes?: string | null;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          reservation_date?: string;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+          confirmed_at?: string | null;
+          expires_at?: string | null;
+          order_id?: number | null;
+          notes?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reservations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      reservation_items: {
+        Row: {
+          id: number;
+          reservation_id: number;
+          product_id: number;
+          size_id: number;
+          quantity: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          reservation_id: number;
+          product_id: number;
+          size_id: number;
+          quantity: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          reservation_id?: number;
+          product_id?: number;
+          size_id?: number;
+          quantity?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reservation_items_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_items_size_id_fkey"
+            columns: ["size_id"]
+            isOneToOne: false
+            referencedRelation: "sizes"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -421,6 +524,22 @@ export type Database = {
           available_quantity: number
           is_sufficient: boolean
         }[]
+      }
+      user_has_5_plus_orders: {
+        Args: {
+          user_uuid: string
+        }
+        Returns: boolean
+      }
+      create_order_from_reservation: {
+        Args: {
+          reservation_id_param: number
+        }
+        Returns: number
+      }
+      cancel_unconfirmed_reservations: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
     }
     Enums: {

@@ -12,6 +12,7 @@ interface CartStore {
   getTotalPrice: () => string;
   getItemCount: () => number;
   resetCart: () => void;
+  updateItemMaxQuantity: (id: number | string, size: SizeType, newMaxQuantity: number) => void;
 }
 
 export const useCartStore = create<CartStore>((set, get) => ({
@@ -129,4 +130,33 @@ export const useCartStore = create<CartStore>((set, get) => ({
     return items.reduce((count, item) => count + item.quantity, 0);
   },
   resetCart: () => set({ items: [] }),
+  updateItemMaxQuantity: (id, size, newMaxQuantity) =>
+    set((state) => {
+      const itemIndex = state.items.findIndex(
+        i => i.id === id && i.size === size
+      );
+      
+      if (itemIndex === -1) return state;
+
+      const item = state.items[itemIndex];
+      
+      // If current quantity exceeds new max, adjust it
+      const adjustedQuantity = Math.min(item.quantity, newMaxQuantity);
+      
+      const updatedItems = [...state.items];
+      updatedItems[itemIndex] = {
+        ...item,
+        maxQuantity: newMaxQuantity,
+        quantity: adjustedQuantity,
+      };
+
+      // If quantity becomes 0, remove the item
+      if (adjustedQuantity === 0) {
+        return {
+          items: state.items.filter((_, index) => index !== itemIndex),
+        };
+      }
+
+      return { items: updatedItems };
+    }),
 }));

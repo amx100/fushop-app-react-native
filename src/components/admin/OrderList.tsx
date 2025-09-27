@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,45 +9,117 @@ import {
   UIManager,
   Platform,
   FlatList,
+  ActivityIndicator, // Za bolji prikaz ucitavanja
+  Alert,
 } from 'react-native';
-// Removed date-fns import due to React Native compatibility issues
-import { OrderStatus } from '../../types';
 import { Toast } from 'react-native-toast-notifications';
+import { OrderStatus } from '../../types';
 
-// Enable LayoutAnimation for Android
+// Omogucavanje LayoutAnimation za Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Safe date formatting function
+// Definicija teme za lakse odrzavanje boja i stilova
+const THEME = {
+  colors: {
+    primary: '#0A2463',
+    secondary: '#3E92CC',
+    success: '#7EB77F',
+    warning: '#FF9800',
+    info: '#02C3BD',
+    white: '#FFFFFF',
+    lightGray: '#F8F9FA',
+    mediumGray: '#DEE2E6',
+    darkGray: '#6C757D',
+    text: '#212529',
+    background: '#FFFFFF',
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+  },
+  borderRadius: 8,
+};
+
+// Mapa statusa i njihovih boja - poboljšane boje
+const STATUS_COLORS: Record<string, string> = {
+  // Originalni statusi
+  'čekanje': '#F39C12',      // Narandžasta - čekanje
+  'Completed': '#27AE60',    // Zelena - završeno
+  'Shipped': '#3498DB',      // Plava - poslato
+  'InTransit': '#9B59B6',    // Ljubičasta - u tranzitu
+  'cancelled': '#E74C3C',    // Crvena - otkazano
+  // Prevedeni statusi
+  'Na čekanju': '#F39C12',   // Narandžasta
+  'Završeno': '#27AE60',     // Zelena
+  'Poslato': '#3498DB',      // Plava
+  'U Tranzitu': '#9B59B6',   // Ljubičasta
+  'Otkazano': '#E74C3C',     // Crvena
+};
+
+// Mapa statusa i njihovih pozadinskih boja
+const STATUS_BG_COLORS: Record<string, string> = {
+  // Originalni statusi
+  'čekanje': '#FEF9E7',      // Svetlo narandžasta
+  'Completed': '#D5F4E6',     // Svetlo zelena
+  'Shipped': '#EBF3FD',       // Svetlo plava
+  'InTransit': '#F4E6F7',     // Svetlo ljubičasta
+  'cancelled': '#FADBD8',     // Svetlo crvena
+  // Prevedeni statusi
+  'Na čekanju': '#FEF9E7',    // Svetlo narandžasta
+  'Završeno': '#D5F4E6',      // Svetlo zelena
+  'Poslato': '#EBF3FD',       // Svetlo plava
+  'U Tranzitu': '#F4E6F7',    // Svetlo ljubičasta
+  'Otkazano': '#FADBD8',      // Svetlo crvena
+};
+
+// Mapa statusa i njihovih labela na srpskom
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  'čekanje': 'Na Čekanju',
+  Completed: 'Završeno',
+  Shipped: 'Poslato',
+  InTransit: 'U Tranzitu',
+  cancelled: 'Otkazano',
+};
+
+// Modernizovana i sigurnija funkcija za formatiranje datuma
 const formatDate = (dateString: string): string => {
   try {
-    if (!dateString) return 'Unknown date';
-    
+    if (!dateString) return 'Nepoznat datum';
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid date';
-    
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    const month = months[date.getMonth()];
-    const day = date.getDate().toString().padStart(2, '0');
-    const year = date.getFullYear();
-    
-    return `${month} ${day}, ${year}`;
+    if (isNaN(date.getTime())) return 'Nevažeći datum';
+
+    // Intl je moderan i standardan nacin za formatiranje
+    return new Intl.DateTimeFormat('sr-RS', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    }).format(date);
   } catch (error) {
-    console.error('Date formatting error:', error);
-    return 'Date error';
+    console.error('Greška pri formatiranju datuma:', error);
+    return 'Greška u datumu';
   }
 };
 
+// Definisanje tipova
 type Order = {
   id: number;
   slug: string;
   created_at: string;
   totalPrice: number;
   status: OrderStatus;
-  user_email: { email: string } | string;
+  user_email?: string;
+  users: { 
+    email: string;
+    name?: string | null;
+    last_name?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    city?: string | null;
+  } | null;
   items: {
     product: {
       title: string;
@@ -64,266 +136,391 @@ type OrderListProps = {
   onUpdateStatus: (orderId: number, status: OrderStatus) => void;
 };
 
-// Define the static statuses outside of component render (or memoize them)
-const STATUSES: OrderStatus[] = ['Pending', 'Completed', 'Shipped', 'InTransit'];
+// Statička lista statusa
+const STATUSES: OrderStatus[] = ['čekanje', 'InTransit', 'Shipped', 'Completed', 'cancelled'];
 
-const getStatusRows = () => {
-  const rows: OrderStatus[][] = [];
-  for (let i = 0; i < STATUSES.length; i += 2) {
-    rows.push(STATUSES.slice(i, i + 2));
-  }
-  return rows;
-};
-
-type OrderItemProps = {
-  order: Order;
-  statusRows: OrderStatus[][];
-  onUpdateStatus: (orderId: number, status: OrderStatus) => void;
-};
-
-const OrderItem = React.memo(({ order, statusRows, onUpdateStatus }: OrderItemProps) => {
-  // Memoize the callback to avoid re-rendering child components unnecessarily
-  const handleStatusChange = useCallback(
-    (status: OrderStatus) => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      onUpdateStatus(order.id, status);
-      Toast.show('Status changed', { type: 'success', duration: 2000 });
-    },
-    [order.id, onUpdateStatus]
-  );
-
-  return (
-    <View style={styles.orderContainer}>
-      <View style={styles.orderContent}>
-        <View style={styles.orderDetailsContainer}>
-          <Text style={styles.orderItem}>Order #{order.slug}</Text>
-          <Text style={styles.orderEmail}>
-            Customer:{' '}
-            {typeof order.user_email === 'string'
-              ? order.user_email
-              : order.user_email?.email || 'No Email Available'}
-          </Text>
-          <Text style={styles.orderDetails}>
-            Total Price: ${order.totalPrice.toFixed(2)}
-          </Text>
-          <Text style={styles.orderDate}>
-            {formatDate(order.created_at)}
-          </Text>
-
-          <View style={styles.itemsContainer}>
-            {order.items?.map((item, idx) => (
-              <View key={idx} style={styles.orderItemRow}>
-                <Image
-                  source={{
-                    uri: item.product?.heroImage || 'https://via.placeholder.com/50',
-                  }}
-                  style={styles.productImage}
-                />
-                <View style={styles.itemDetails}>
-                  <Text style={styles.productTitle}>
-                    {item.product?.title || 'Product Name Not Available'}
-                  </Text>
-                  <Text style={styles.itemInfo}>
-                    Size: {item.size || 'N/A'} • Qty: {item.quantity || 0}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.statusContainer}>
-            {statusRows.map((row, rowIndex) => (
-              <View key={rowIndex} style={styles.statusRow}>
-                {row.map((status) => (
-                  <Pressable
-                    key={status}
-                    style={[
-                      styles.statusBadge,
-                      styles[`statusBadge_${status}` ],
-                    ]}
-                    onPress={() => handleStatusChange(status)}
-                    android_ripple={{ color: 'transparent' }}
-                  >
-                    <Text style={styles.statusBadgeText} numberOfLines={1}>
-                      {status.toUpperCase()}
-                    </Text>
-                  </Pressable>
-                ))}
-                {row.length < 2 && <View style={styles.statusBadge} />}
-              </View>
-            ))}
-          </View>
-        </View>
-        <View style={[styles.statusBadge, styles[`statusBadge_${order.status}` ]]}>
-          <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
-        </View>
+// --- Komponenta za jedan red artikla ---
+const OrderProductItem = React.memo(
+  ({ item }: { item: Order['items'][0] }) => (
+    <View style={styles.productItem}>
+      <Image
+        source={{ uri: item.product?.heroImage || 'https://via.placeholder.com/60' }}
+        style={styles.productImage}
+      />
+      <View style={styles.productDetails}>
+        <Text style={styles.productTitle} numberOfLines={2}>
+          {item.product?.title || 'Naziv proizvoda nije dostupan'}
+        </Text>
+        <Text style={styles.productInfo}>
+          Veličina: {item.size || 'N/A'} • Količina: {item.quantity || 0}
+        </Text>
       </View>
     </View>
-  );
-});
+  )
+);
 
+// --- Komponenta za biranje statusa ---
+const StatusSelector = React.memo(({
+    currentStatus,
+    onSelect,
+}: {
+    currentStatus: OrderStatus;
+    onSelect: (status: OrderStatus) => void;
+}) => (
+    <View>
+        <Text style={styles.changeStatusTitle}>Promeni status:</Text>
+        <View style={styles.statusSelectorContainer}>
+            {STATUSES.map((status) => {
+                const isSelected = status === currentStatus;
+                return (
+                    <Pressable
+                        key={status}
+                        onPress={() => onSelect(status)}
+                        style={[
+                            styles.statusChip,
+                            { 
+                              backgroundColor: STATUS_BG_COLORS[status] || '#E8F4FD',
+                              borderColor: STATUS_COLORS[status] || '#3498DB'
+                            },
+                            !isSelected && styles.statusChipInactive,
+                        ]}
+                    >
+                        <Text style={[
+                          styles.statusChipText,
+                          { color: STATUS_COLORS[status] || '#3498DB' }
+                        ]}>
+                          {STATUS_LABELS[status] || status}
+                        </Text>
+                    </Pressable>
+                );
+            })}
+        </View>
+    </View>
+));
+
+
+// --- Glavna komponenta za prikaz jedne porudzbine ---
+const OrderItem = React.memo(
+  ({ order, onUpdateStatus }: { order: Order; onUpdateStatus: OrderListProps['onUpdateStatus'] }) => {
+    // Lokalno stanje za pracenje da li je kartica otvorena
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    const toggleExpansion = useCallback(() => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setIsExpanded((prev) => !prev);
+    }, []);
+
+    const handleStatusChange = useCallback(
+      (status: OrderStatus) => {
+        if (status !== order.status) {
+          // Show confirmation dialog for cancellation
+          if (status === 'cancelled') {
+            Alert.alert(
+              'Potvrda otkazivanja',
+              'Da li ste sigurni da želite da otkažete porudžbinu? Ovo će vratiti sve proizvode na stanje.',
+              [
+                {
+                  text: 'Odustani',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Otkaži porudžbinu',
+                  style: 'destructive',
+                  onPress: () => {
+                    onUpdateStatus(order.id, status);
+                  },
+                },
+              ]
+            );
+          } else {
+            onUpdateStatus(order.id, status);
+            Toast.show('Status uspešno promenjen!', { type: 'success', duration: 2500 });
+          }
+        }
+      },
+      [order.id, order.status, onUpdateStatus]
+    );
+
+
+    // Ekstraktovanje podataka o korisniku
+    const userData = order.users;
+    
+    const customerName = userData?.name && userData?.last_name 
+      ? `${userData.name} ${userData.last_name}` 
+      : userData?.name || 'Nepoznato ime';
+    
+    const customerEmail = userData?.email || order.user_email || 'N/A';
+    const customerPhone = userData?.phone || 'N/A';
+    const customerLocation = userData?.city ? `${userData.city}${userData?.address ? `, ${userData.address}` : ''}` : 'N/A';
+
+    return (
+      <Pressable onPress={toggleExpansion} style={styles.card}>
+        {/* === Zaglavlje kartice (uvek vidljivo) === */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderInfo}>
+            <Text style={styles.orderId}>Porudžbina #{order.id}</Text>
+            <Text style={styles.customerName}>{customerName}</Text>
+            <Text style={styles.orderEmail}>{customerEmail}</Text>
+            <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
+          </View>
+          <View style={styles.cardHeaderSide}>
+            <Text style={styles.totalPrice}>${order.totalPrice.toFixed(2)}</Text>
+            <View style={[
+                styles.statusBadge, 
+                { 
+                  backgroundColor: STATUS_BG_COLORS[order.status] || '#E8F4FD',
+                  borderColor: STATUS_COLORS[order.status] || '#3498DB'
+                }
+            ]}>
+              <Text style={[
+                styles.statusBadgeText,
+                { color: STATUS_COLORS[order.status] || '#3498DB' }
+              ]}>
+                {STATUS_LABELS[order.status] || order.status}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* === Telo kartice (vidljivo samo kad je otvoreno) === */}
+        {isExpanded && (
+          <View style={styles.cardBody}>
+            <View style={styles.divider} />
+            
+            {/* Informacije o kupcu */}
+            <View style={styles.customerInfoSection}>
+              <Text style={styles.sectionTitle}>Informacije o kupcu</Text>
+              <View style={styles.customerDetails}>
+                <Text style={styles.customerDetailItem}>
+                  <Text style={styles.customerDetailLabel}>Ime: </Text>
+                  {customerName}
+                </Text>
+                <Text style={styles.customerDetailItem}>
+                  <Text style={styles.customerDetailLabel}>Email: </Text>
+                  {customerEmail}
+                </Text>
+                <Text style={styles.customerDetailItem}>
+                  <Text style={styles.customerDetailLabel}>Telefon: </Text>
+                  {customerPhone}
+                </Text>
+                <Text style={styles.customerDetailItem}>
+                  <Text style={styles.customerDetailLabel}>Lokacija: </Text>
+                  {customerLocation}
+                </Text>
+              </View>
+            </View>
+            
+            <Text style={styles.itemsTitle}>Artikli ({order.items?.length || 0}):</Text>
+            {order.items?.map((item, index) => (
+              <OrderProductItem key={`${item.product.title}-${index}`} item={item} />
+            ))}
+
+            <View style={styles.divider} />
+
+            <StatusSelector 
+              currentStatus={order.status}
+              onSelect={handleStatusChange}
+            />
+          </View>
+        )}
+      </Pressable>
+    );
+  }
+);
+
+// --- Komponenta liste porudzbina ---
 export function OrderList({ orders, isLoading, onUpdateStatus }: OrderListProps) {
-  // Memoize the statusRows since STATUSES are static
-  const statusRows = useMemo(() => getStatusRows(), []);
-
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.messageText}>Loading orders...</Text>
+      <View style={styles.centeredContainer}>
+        <ActivityIndicator size="large" color={THEME.colors.primary} />
+        <Text style={styles.messageText}>Učitavanje porudžbina...</Text>
       </View>
     );
   }
 
   if (!orders || orders.length === 0) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.messageText}>No orders found</Text>
+      <View style={styles.centeredContainer}>
+        <Text style={styles.messageText}>Nema pronađenih porudžbina.</Text>
       </View>
     );
   }
 
-  // Use FlatList for better performance on large lists
   return (
     <FlatList
       data={orders}
       keyExtractor={(order) => order.id.toString()}
-      contentContainerStyle={styles.container}
-      renderItem={({ item }) => (
-        <OrderItem order={item} statusRows={statusRows} onUpdateStatus={onUpdateStatus} />
-      )}
+      contentContainerStyle={styles.listContainer}
+      renderItem={({ item }) => <OrderItem order={item} onUpdateStatus={onUpdateStatus} />}
+      ItemSeparatorComponent={() => <View style={{ height: THEME.spacing.sm }} />}
     />
   );
 }
 
+// --- Stilovi ---
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 16,
-    backgroundColor: '#fff',
+  centeredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.background,
   },
-  orderContainer: {
-    backgroundColor: '#f8f8f8',
-    padding: 16,
-    marginVertical: 8,
-    borderRadius: 8,
+  listContainer: {
+    padding: THEME.spacing.md,
+    backgroundColor: THEME.colors.background,
   },
-  orderContent: {
+  messageText: {
+    fontSize: 16,
+    color: THEME.colors.darkGray,
+    marginTop: THEME.spacing.md,
+  },
+  // Card stilovi
+  card: {
+    backgroundColor: THEME.colors.white,
+    borderRadius: THEME.borderRadius,
+    padding: THEME.spacing.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.mediumGray,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  orderDetailsContainer: {
+  cardHeaderInfo: {
     flex: 1,
   },
-  orderItem: {
+  orderId: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: THEME.colors.text,
+  },
+  customerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME.colors.text,
+    marginVertical: THEME.spacing.xs,
   },
   orderEmail: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  orderDetails: {
-    fontSize: 14,
-    color: '#555',
+    color: THEME.colors.darkGray,
+    marginVertical: THEME.spacing.xs,
   },
   orderDate: {
     fontSize: 12,
-    color: '#888',
-    marginTop: 4,
+    color: THEME.colors.darkGray,
   },
-  itemsContainer: {
-    marginTop: 12,
-    marginBottom: 16,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    padding: 8,
+  cardHeaderSide: {
+    alignItems: 'flex-end',
   },
-  orderItemRow: {
+  totalPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: THEME.colors.primary,
+    marginBottom: THEME.spacing.sm,
+  },
+  statusBadge: {
+    paddingVertical: THEME.spacing.xs,
+    paddingHorizontal: THEME.spacing.sm,
+    borderRadius: THEME.borderRadius,
+    borderWidth: 1,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cardBody: {
+    marginTop: THEME.spacing.md,
+  },
+  customerInfoSection: {
+    marginBottom: THEME.spacing.md,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME.colors.text,
+    marginBottom: THEME.spacing.sm,
+  },
+  customerDetails: {
+    backgroundColor: THEME.colors.lightGray,
+    padding: THEME.spacing.md,
+    borderRadius: THEME.borderRadius,
+  },
+  customerDetailItem: {
+    fontSize: 14,
+    color: THEME.colors.text,
+    marginBottom: THEME.spacing.xs,
+  },
+  customerDetailLabel: {
+    fontWeight: '600',
+    color: THEME.colors.darkGray,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: THEME.colors.mediumGray,
+    marginVertical: THEME.spacing.md,
+  },
+  itemsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+    marginBottom: THEME.spacing.sm,
+  },
+  // Stilovi za artikal
+  productItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
-    padding: 8,
-    backgroundColor: '#fff',
-    borderRadius: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingVertical: THEME.spacing.sm,
   },
   productImage: {
     width: 60,
     height: 60,
-    borderRadius: 6,
-    marginRight: 12,
+    borderRadius: THEME.borderRadius,
+    marginRight: THEME.spacing.md,
+    backgroundColor: THEME.colors.lightGray,
   },
-  itemDetails: {
+  productDetails: {
     flex: 1,
   },
   productTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
-    color: '#333',
-    marginBottom: 4,
+    color: THEME.colors.text,
   },
-  itemInfo: {
+  productInfo: {
     fontSize: 14,
-    color: '#666',
+    color: THEME.colors.darkGray,
+    marginTop: THEME.spacing.xs,
   },
-  statusContainer: {
-    marginTop: 8,
-    width:'auto'
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-    marginLeft: 8,
-    width: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    color: '#fff',
-  },
-
-  statusBadge_Pending: {
-    backgroundColor: '#0A2463',
-  },
-  statusBadge_Completed: {
-    backgroundColor: '#7EB77F',
-  },
-  statusBadge_Shipped: {
-    backgroundColor: '#02C3BD',
-  },
-  statusBadge_InTransit: {
-    backgroundColor: '#ff9800',
-  },
-  statusBadge_Cancelled: {
-    backgroundColor: '#ff9800',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#fff',
-  },
-
-  messageText: {
+  // Stilovi za biranje statusa
+  changeStatusTitle: {
     fontSize: 16,
-    textAlign: 'center',
-    marginTop: 20,
-    color: '#666',
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+    marginBottom: THEME.spacing.md,
+  },
+  statusSelectorContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: THEME.spacing.sm,
+  },
+  statusChip: {
+    paddingVertical: THEME.spacing.sm,
+    paddingHorizontal: THEME.spacing.md,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  statusChipInactive: {
+    opacity: 0.6,
+  },
+  statusChipText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

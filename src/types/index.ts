@@ -23,7 +23,7 @@ export interface ProductFormData {
   status?: 'available' | 'out_of_stock';
 }
 
-export type OrderStatus = 'Pending' | 'Completed' | 'Shipped' | 'InTransit';
+export type OrderStatus = 'čekanje' | 'Completed' | 'Shipped' | 'InTransit' | 'cancelled';
 
 export type Order = {
   id: number;

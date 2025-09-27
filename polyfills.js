@@ -6,9 +6,58 @@ if (typeof global.Buffer === 'undefined') {
   global.Buffer = require('buffer').Buffer;
 }
 
-// Stream polyfill 
+// Events polyfill to prevent Node.js module imports
+if (typeof global.events === 'undefined') {
+  global.events = {
+    EventEmitter: class EventEmitter {
+      constructor() {
+        this._events = {};
+      }
+      on(event, listener) {
+        if (!this._events[event]) this._events[event] = [];
+        this._events[event].push(listener);
+        return this;
+      }
+      emit(event, ...args) {
+        if (this._events[event]) {
+          this._events[event].forEach(listener => listener(...args));
+        }
+        return this;
+      }
+      removeListener(event, listener) {
+        if (this._events[event]) {
+          this._events[event] = this._events[event].filter(l => l !== listener);
+        }
+        return this;
+      }
+    }
+  };
+}
+
+// Stream polyfill - use a simpler approach to avoid Node.js dependencies
 if (typeof global.stream === 'undefined') {
-  global.stream = require('stream-browserify');
+  // Mock stream module to avoid Node.js dependencies
+  global.stream = {
+    Readable: class Readable {
+      constructor(options) {
+        this._readableState = { objectMode: false };
+        this._read = options && options.read || function() {};
+      }
+    },
+    Writable: class Writable {
+      constructor(options) {
+        this._writableState = { objectMode: false };
+        this._write = options && options.write || function() {};
+      }
+    },
+    Transform: class Transform {
+      constructor(options) {
+        this._readableState = { objectMode: false };
+        this._writableState = { objectMode: false };
+        this._transform = options && options.transform || function() {};
+      }
+    }
+  };
 }
 
 // Util polyfill
