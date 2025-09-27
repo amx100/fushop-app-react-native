@@ -1,0 +1,10 @@
+{
+  "process-reservations": {
+    "schedule": "0 9 * * *",
+    "description": "Process reservations daily at 9 AM"
+  },
+  "cancel-unconfirmed": {
+    "schedule": "0 */6 * * *",
+    "description": "Cancel unconfirmed reservations every 6 hours"
+  }
+}

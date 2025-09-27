@@ -45,29 +45,43 @@ const THEME = {
 };
 
 // Mapa statusa i njihovih boja - poboljšane boje
-const STATUS_COLORS: Record<OrderStatus, string> = {
-  'čekanje': '#dc2626',      // Crvena - hitno
-  Completed: '#059669',    // Zelena - završeno
-  Shipped: '#2563eb',      // Plava - poslato
-  InTransit: '#7c3aed',    // Ljubičasta - u tranzitu
-  cancelled: '#dc2626',    // Crvena - otkazano
+const STATUS_COLORS: Record<string, string> = {
+  // Originalni statusi
+  'čekanje': '#F39C12',      // Narandžasta - čekanje
+  'Completed': '#27AE60',    // Zelena - završeno
+  'Shipped': '#3498DB',      // Plava - poslato
+  'InTransit': '#9B59B6',    // Ljubičasta - u tranzitu
+  'cancelled': '#E74C3C',    // Crvena - otkazano
+  // Prevedeni statusi
+  'Na čekanju': '#F39C12',   // Narandžasta
+  'Završeno': '#27AE60',     // Zelena
+  'Poslato': '#3498DB',      // Plava
+  'U Tranzitu': '#9B59B6',   // Ljubičasta
+  'Otkazano': '#E74C3C',     // Crvena
 };
 
 // Mapa statusa i njihovih pozadinskih boja
-const STATUS_BG_COLORS: Record<OrderStatus, string> = {
-  'čekanje': '#fef2f2',      // Svetlo crvena
-  Completed: '#ecfdf5',     // Svetlo zelena
-  Shipped: '#eff6ff',       // Svetlo plava
-  InTransit: '#f3e8ff',   // Svetlo ljubičasta
-  cancelled: '#fef2f2',    // Svetlo crvena
+const STATUS_BG_COLORS: Record<string, string> = {
+  // Originalni statusi
+  'čekanje': '#FEF9E7',      // Svetlo narandžasta
+  'Completed': '#D5F4E6',     // Svetlo zelena
+  'Shipped': '#EBF3FD',       // Svetlo plava
+  'InTransit': '#F4E6F7',     // Svetlo ljubičasta
+  'cancelled': '#FADBD8',     // Svetlo crvena
+  // Prevedeni statusi
+  'Na čekanju': '#FEF9E7',    // Svetlo narandžasta
+  'Završeno': '#D5F4E6',      // Svetlo zelena
+  'Poslato': '#EBF3FD',       // Svetlo plava
+  'U Tranzitu': '#F4E6F7',    // Svetlo ljubičasta
+  'Otkazano': '#FADBD8',      // Svetlo crvena
 };
 
 // Mapa statusa i njihovih labela na srpskom
 const STATUS_LABELS: Record<OrderStatus, string> = {
-  'čekanje': 'Čeka',
+  'čekanje': 'Na Čekanju',
   Completed: 'Završeno',
   Shipped: 'Poslato',
-  InTransit: 'U tranzitu',
+  InTransit: 'U Tranzitu',
   cancelled: 'Otkazano',
 };
 
@@ -165,15 +179,15 @@ const StatusSelector = React.memo(({
                         style={[
                             styles.statusChip,
                             { 
-                              backgroundColor: STATUS_BG_COLORS[status] || '#f3f4f6',
-                              borderColor: STATUS_COLORS[status] || '#6b7280'
+                              backgroundColor: STATUS_BG_COLORS[status] || '#E8F4FD',
+                              borderColor: STATUS_COLORS[status] || '#3498DB'
                             },
                             !isSelected && styles.statusChipInactive,
                         ]}
                     >
                         <Text style={[
                           styles.statusChipText,
-                          { color: STATUS_COLORS[status] || '#6b7280' }
+                          { color: STATUS_COLORS[status] || '#3498DB' }
                         ]}>
                           {STATUS_LABELS[status] || status}
                         </Text>
@@ -252,15 +266,15 @@ const OrderItem = React.memo(
           <View style={styles.cardHeaderSide}>
             <Text style={styles.totalPrice}>${order.totalPrice.toFixed(2)}</Text>
             <View style={[
-              styles.statusBadge, 
-              { 
-                backgroundColor: STATUS_BG_COLORS[order.status] || '#f3f4f6',
-                borderColor: STATUS_COLORS[order.status] || '#6b7280'
-              }
+                styles.statusBadge, 
+                { 
+                  backgroundColor: STATUS_BG_COLORS[order.status] || '#E8F4FD',
+                  borderColor: STATUS_COLORS[order.status] || '#3498DB'
+                }
             ]}>
               <Text style={[
                 styles.statusBadgeText,
-                { color: STATUS_COLORS[order.status] || '#6b7280' }
+                { color: STATUS_COLORS[order.status] || '#3498DB' }
               ]}>
                 {STATUS_LABELS[order.status] || order.status}
               </Text>

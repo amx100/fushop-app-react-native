@@ -53,7 +53,7 @@ export default function RootLayout() {
                   name='admin'
                   options={{ 
                     headerShown: true,
-                    title: 'Admin Dashboard',
+                    title: '',
                     headerBackVisible: false,
                   }}
                 />

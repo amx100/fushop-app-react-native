@@ -179,12 +179,17 @@ export function useAdminOrders() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async () => {
+      console.log('🔄 useAdminOrders: Starting to fetch orders...');
+      
       // Debug: proverite da li je korisnik autentifikovan
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (!user) {
+        console.log('❌ useAdminOrders: User not authenticated');
         throw new Error('User not authenticated');
       }
+      
+      console.log('✅ useAdminOrders: User authenticated:', user.id);
 
       // Check if user is admin
       const { data: userData, error: userError } = await supabase
@@ -194,12 +199,19 @@ export function useAdminOrders() {
         .single();
 
       if (userError || !userData) {
+        console.log('❌ useAdminOrders: Error fetching user data:', userError);
         throw new Error('Error fetching user data');
       }
 
-      if (userData.type !== 'admin') {
+      console.log('✅ useAdminOrders: User data:', userData);
+
+      const isAdmin = userData.type === 'ADMIN' || userData.type === 'admin';
+      if (!isAdmin) {
+        console.log('❌ useAdminOrders: User type:', userData.type, 'is not admin');
         throw new Error('User is not admin');
       }
+      
+      console.log('✅ useAdminOrders: User is admin, fetching orders...');
 
       const { data: ordersData, error } = await supabase
         .from('order')
@@ -219,9 +231,11 @@ export function useAdminOrders() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Supabase error:', error);
+        console.error('❌ useAdminOrders: Supabase error:', error);
         throw error;
       }
+
+      console.log('✅ useAdminOrders: Fetched orders data:', ordersData?.length, 'orders');
 
       if (ordersData) {
         const formattedOrders: Order[] = ordersData.map((order) => {
@@ -245,9 +259,11 @@ export function useAdminOrders() {
           };
         });
         
+        console.log('✅ useAdminOrders: Formatted orders:', formattedOrders.length);
         return formattedOrders;
       }
       
+      console.log('⚠️ useAdminOrders: No orders data, returning empty array');
       return [];
     },
     staleTime: 1000 * 60 * 2, // 2 minutes
@@ -407,6 +423,9 @@ export function useAdminOrders() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      // Also refresh dashboard data when order status changes
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 

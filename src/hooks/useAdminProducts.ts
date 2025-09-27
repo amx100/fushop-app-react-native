@@ -218,6 +218,9 @@ export function useAdminProducts() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      // Also refresh dashboard data when product is created
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
       Toast.show('Product created successfully', { type: 'success' });
     },
     onError: (error: Error) => {
@@ -310,6 +313,9 @@ export function useAdminProducts() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      // Also refresh dashboard data when product is updated
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
       Toast.show('Product updated successfully', { type: 'success' });
     },
     onError: (error: Error) => {
@@ -324,6 +330,9 @@ export function useAdminProducts() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      // Also refresh dashboard data when product is deleted
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
       Toast.show('Product deleted successfully', { type: 'success' });
     },
     onError: (error: Error) => {

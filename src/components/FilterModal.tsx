@@ -92,17 +92,17 @@ export const FilterModal: React.FC<FilterModalProps> = ({
           </TouchableOpacity>
           <Text style={styles.title}>Filters</Text>
           <TouchableOpacity onPress={handleReset}>
-            <Text style={styles.resetText}>Reset</Text>
+            <Text style={styles.resetText}>Resetuj</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.content}>
           {/* Price Range */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Price Range</Text>
+            <Text style={styles.sectionTitle}>Cenonvi opseg</Text>
             <View style={styles.priceRangeContainer}>
               <View style={styles.priceInputContainer}>
-                <Text style={styles.priceLabel}>Min</Text>
+                <Text style={styles.priceLabel}>Minimalna cena</Text>
                 <TextInput
                   style={styles.priceInput}
                   value={filters.priceRange.min.toString()}
@@ -119,7 +119,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
               </View>
               <Text style={styles.priceSeparator}>-</Text>
               <View style={styles.priceInputContainer}>
-                <Text style={styles.priceLabel}>Max</Text>
+                <Text style={styles.priceLabel}>Maksimalna cena</Text>
                 <TextInput
                   style={styles.priceInput}
                   value={filters.priceRange.max.toString()}
@@ -139,7 +139,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
           {/* Categories */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Categories</Text>
+            <Text style={styles.sectionTitle}>Kategorije</Text>
             {categories.map((category) => (
               <TouchableOpacity
                 key={category.id}
@@ -161,7 +161,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
           {/* Sizes */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Sizes</Text>
+            <Text style={styles.sectionTitle}>Veličine</Text>
             <View style={styles.sizesContainer}>
               {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((size) => (
                 <TouchableOpacity
@@ -185,12 +185,12 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
           {/* Sort By */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Sort By</Text>
+              <Text style={styles.sectionTitle}>Sortiraj po</Text>
             {[
-              { key: 'created_at', label: 'Newest First' },
+              { key: 'created_at', label: 'Najnovije prvo' },
               { key: 'name', label: 'Name A-Z' },
-              { key: 'price_asc', label: 'Price: Low to High' },
-              { key: 'price_desc', label: 'Price: High to Low' },
+              { key: 'price_asc', label: 'Cena: Niska do visoka' },
+              { key: 'price_desc', label: 'Cena: Visoka do niska' },
             ].map((option) => (
               <TouchableOpacity
                 key={option.key}
@@ -213,7 +213,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
           {/* In Stock Only */}
           <View style={styles.section}>
             <View style={styles.switchItem}>
-              <Text style={styles.switchLabel}>In Stock Only</Text>
+              <Text style={styles.switchLabel}>Samo na stanju</Text>
               <Switch
                 value={filters.inStock}
                 onValueChange={(value) => setFilters(prev => ({ ...prev, inStock: value }))}
@@ -226,7 +226,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
         <View style={styles.footer}>
           <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
-            <Text style={styles.applyButtonText}>Apply Filters</Text>
+            <Text style={styles.applyButtonText}>Primeni filtre</Text>
           </TouchableOpacity>
         </View>
       </View>

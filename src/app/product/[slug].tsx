@@ -20,6 +20,8 @@ import { useCartStore } from '../../store/cart-store';
 import { getProduct } from '../../api/api';
 import { ProductSize, SizeType } from '../../types';
 import { useAuth } from '../../providers/auth-provider';
+import { ReservationModal } from '../../components/shop/ReservationModal';
+import { useReservations } from '../../hooks/useReservations';
 
 const { width, height } = Dimensions.get('window');
 
@@ -34,6 +36,9 @@ const ProductDetails = () => {
   const [selectedSize, setSelectedSize] = useState<SizeType | ''>('');
   const [quantity, setQuantity] = useState<number>(0);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
+  const [showReservationModal, setShowReservationModal] = useState<boolean>(false);
+  
+  const { checkEligibility } = useReservations();
 
   const existingCartQuantity = useMemo(() => {
     if (!product || !selectedSize) return 0;
@@ -54,7 +59,7 @@ const ProductDetails = () => {
     }
     const sizeData = product?.sizes?.find((s: ProductSize) => s.size === selectedSize);
     if (!sizeData || existingCartQuantity + quantity >= sizeData.quantity) {
-      toast.show('Nema više na stanju', { type: 'warning' });
+      toast.show('Dodali ste maksimalnu količinu', { type: 'warning' });
       return;
     }
     setQuantity(prev => prev + 1);
@@ -100,6 +105,32 @@ const ProductDetails = () => {
     toast.show('Dodato u korpu', { type: 'success' });
     setQuantity(0);
   }, [session, selectedSize, product, quantity, addItem, toast, router]);
+
+  const handleReservationPress = async () => {
+    if (!session) {
+      toast.show('Prijavite se za rezervaciju', { type: 'warning' });
+      router.push('/auth');
+      return;
+    }
+    
+    if (!selectedSize) {
+      toast.show('Izaberite veličinu proizvoda', { type: 'warning' });
+      return;
+    }
+    
+    if (quantity === 0) {
+      toast.show('Izaberite količinu proizvoda', { type: 'warning' });
+      return;
+    }
+    
+    const isEligible = await checkEligibility();
+    if (!isEligible) {
+      toast.show('Morate imati najmanje 5 porudžbina za rezervaciju', { type: 'warning' });
+      return;
+    }
+    
+    setShowReservationModal(true);
+  };
 
   if (isLoading) {
     return (
@@ -189,20 +220,30 @@ const ProductDetails = () => {
 
         {/* Add to Cart */}
         {!isOutOfStock ? (
-          <TouchableOpacity
-            style={styles.cartBtn}
-            onPress={handleAddToCart}
-            disabled={!selectedSize || quantity === 0}
-          >
-            <LinearGradient
-              colors={(!selectedSize || quantity === 0) ? ['#ccc', '#ccc'] : ['#007AFF', '#0056D6']}
-              style={styles.cartGradient}
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.cartBtn}
+              onPress={handleAddToCart}
+              disabled={!selectedSize || quantity === 0}
             >
-              <Text style={styles.cartText}>
-                {!session ? 'Prijavite se' : `Dodaj za ${totalPrice} RSD`}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={(!selectedSize || quantity === 0) ? ['#ccc', '#ccc'] : ['#007AFF', '#0056D6']}
+                style={styles.cartGradient}
+              >
+                <Text style={styles.cartText}>
+                  {!session ? 'Prijavite se' : `Dodaj za ${totalPrice} RSD`}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.reservationBtn}
+              onPress={handleReservationPress}
+            >
+              <Ionicons name="calendar-outline" size={20} color="#4a90e2" />
+              <Text style={styles.reservationText}>Rezerviši</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <View style={styles.outCard}>
             <Ionicons name="close-circle" size={20} color="#FF3B30" />
@@ -210,6 +251,17 @@ const ProductDetails = () => {
           </View>
         )}
       </ScrollView>
+      
+      {/* Reservation Modal */}
+      {product && (
+        <ReservationModal
+          visible={showReservationModal}
+          onClose={() => setShowReservationModal(false)}
+          product={product as any}
+          selectedSize={selectedSize}
+          selectedQuantity={quantity}
+        />
+      )}
     </View>
   );
 };
@@ -268,9 +320,35 @@ const styles = StyleSheet.create({
   },
   qtyValue: { fontSize: 18, fontWeight: '600', color: '#333' },
 
-  cartBtn: { borderRadius: 24, overflow: 'hidden', marginTop: 10 },
+  actionButtons: { 
+    flexDirection: 'row', 
+    gap: 10, 
+    marginTop: 10 
+  },
+  cartBtn: { 
+    flex: 1,
+    borderRadius: 24, 
+    overflow: 'hidden' 
+  },
   cartGradient: { paddingVertical: 16, alignItems: 'center' },
   cartText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  reservationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#4a90e2',
+    backgroundColor: '#f8f9ff',
+  },
+  reservationText: {
+    color: '#4a90e2',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
 
   outCard: {
     flexDirection: 'row',

@@ -112,10 +112,12 @@ const ListHeader = memo(({ onCreateNew, products }: {
     if (product.sizes) {
       product.sizes.forEach(size => {
         const sizeName = size.size;
-        if (!acc[sizeName]) {
+        if (sizeName && !acc[sizeName]) {
           acc[sizeName] = 0;
         }
-        acc[sizeName] += size.quantity || 0;
+        if (sizeName) {
+          acc[sizeName] += size.quantity || 0;
+        }
       });
     }
     return acc;
@@ -125,38 +127,7 @@ const ListHeader = memo(({ onCreateNew, products }: {
 
   return (
     <View style={styles.headerContainer}>
-      {/* Statistike */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{totalProducts}</Text>
-            <Text style={styles.statLabel}>Ukupno proizvoda</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statNumber, { color: '#2ecc71' }]}>{availableProducts}</Text>
-            <Text style={styles.statLabel}>Dostupni</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statNumber, { color: '#e74c3c' }]}>{outOfStockProducts}</Text>
-            <Text style={styles.statLabel}>Nema na stanju</Text>
-          </View>
-        </View>
-        
-        <View style={styles.stockStatsContainer}>
-          <Text style={styles.stockStatsTitle}>Ukupne zalihe: {totalStock} komada</Text>
-          {Object.keys(sizeStats).length > 0 && (
-            <View style={styles.sizeStatsContainer}>
-              {Object.entries(sizeStats)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([size, quantity]) => (
-                  <View key={size} style={styles.sizeStatItem}>
-                    <Text style={styles.sizeStatText}>{size}: {quantity}</Text>
-                  </View>
-                ))}
-            </View>
-          )}
-        </View>
-      </View>
+  
 
       <TouchableOpacity onPress={onCreateNew}>
         <LinearGradient

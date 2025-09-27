@@ -38,7 +38,7 @@ const SkeletonItem = ({ width = '100%', height = 20, borderRadius = 4 }: {
       style={[
         styles.skeletonItem,
         {
-          width,
+          width: width as any,
           height,
           borderRadius,
           opacity,

@@ -165,6 +165,21 @@ const TabsLayout = () => {
             }}
           />
           <Tabs.Screen
+            name='reservations'
+            options={{
+              title: 'Rezervacije',
+              tabBarItemStyle: !session ? { display: 'none' } : undefined,
+              tabBarIcon(props) {
+                return (
+                  <TabBarIcon 
+                    {...props} 
+                    name={props.focused ? 'calendar' : 'calendar-outline'} 
+                  />
+                );
+              },
+            }}
+          />
+          <Tabs.Screen
             name='auth'
             options={{
               title: 'Prijava',

@@ -51,7 +51,7 @@ const CartItemComponent = ({
       <View style={styles.itemDetails}>
         <Text style={styles.itemTitle}>{item.title}</Text>
         <Text style={styles.itemSize}>Size: {item.size}</Text>
-        <Text style={styles.itemPrice}>${(item.price || 0).toFixed(2)} USD</Text>
+        <Text style={styles.itemPrice}>${(item.price || 0).toFixed(2)} RSD</Text>
         
         {/* Quantity Controls */}
         <View style={styles.quantityContainer}>
@@ -405,16 +405,16 @@ export default function Cart() {
         {items.length > 0 && (
           <View style={styles.orderSummary}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Sub total:</Text>
-              <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
+              <Text style={styles.summaryLabel}>Međuzbir:</Text>
+              <Text style={styles.summaryValue}>{subtotal.toFixed(2)} RSD</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Shipping:</Text>
-              <Text style={styles.summaryValue}>${shippingCost.toFixed(2)}</Text>
+              <Text style={styles.summaryLabel}>Dostava:</Text>
+              <Text style={styles.summaryValue}>{shippingCost.toFixed(2)} RSD</Text>
             </View>
             <View style={[styles.summaryRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>total:</Text>
-              <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+              <Text style={styles.totalLabel}>Ukupno:</Text>
+              <Text style={styles.totalValue}>{total.toFixed(2)} RSD</Text>
             </View>
           </View>
         )}
@@ -459,7 +459,7 @@ export default function Cart() {
                 <Ionicons name="arrow-forward" size={20} color="white" />
               </View>
               <Text style={styles.checkoutButtonText}>
-                {profileComplete === false ? 'Popuni profil prvo' : 'Checkout'}
+                {profileComplete === false ? 'Popuni profil prvo' : 'Završi porudžbinu'}
               </Text>
             </LinearGradient>
           </TouchableOpacity>

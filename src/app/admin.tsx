@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
 import { ProductList } from '../components/admin/ProductList';
 import { OrderList } from '../components/admin/OrderList';
 import { ModernProductModal } from '../components/admin/ProductModal';
@@ -13,11 +13,13 @@ import { useAdminCategories } from '../hooks/useAdminCategories';
 import { supabase } from '../lib/supabase';
 import { Toast } from 'react-native-toast-notifications';
 import { CategoryList } from '../components/admin/CategoryList';
+import { ReservationsManagement } from '../components/admin/ReservationsManagement';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import SizeManagement from '../components/admin/SizeModal';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProductListSkeleton, OrderListSkeleton, CategoryListSkeleton } from '../components/admin/LoadingSkeleton';
+import { LinearGradient } from 'expo-linear-gradient';
 
 
 const initialFormData: ProductFormData = {
@@ -36,11 +38,14 @@ const initialCategoryFormData: CategoryFormData = {
   imageurl: '',
 };
 
+const { width } = Dimensions.get('window');
+
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'categories' | 'sizes'>('products');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'orders' | 'categories' | 'sizes' | 'reservations'>('dashboard');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -50,6 +55,8 @@ export default function AdminDashboard() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const {
     products,
@@ -219,12 +226,123 @@ export default function AdminDashboard() {
     }
   }, [products, fixAllProductStatuses]);
 
+  // Dashboard statistics calculation
+  const dashboardStats = useMemo(() => {
+    console.log('📊 Dashboard Stats - products:', products?.length, 'orders:', orders?.length, 'categories:', categories?.length);
+    
+    if (!products || !orders || !categories) {
+      console.log('⚠️ Dashboard Stats - Missing data, returning defaults');
+      return {
+        totalProducts: 0,
+        availableProducts: 0,
+        outOfStockProducts: 0,
+        totalOrders: 0,
+        pendingOrders: 0,
+        completedOrders: 0,
+        totalCategories: 0,
+        totalRevenue: 0,
+        totalStock: 0,
+        sizeStats: {} as Record<string, number>
+      };
+    }
+
+    const totalProducts = products.length;
+    const availableProducts = products.filter(p => p.status === 'available').length;
+    const outOfStockProducts = products.filter(p => p.status === 'out_of_stock').length;
+    
+    const totalOrders = orders.length;
+    const pendingOrders = orders.filter(o => o.status === 'pending' as OrderStatus).length;
+    const completedOrders = orders.filter(o => o.status === 'completed' as OrderStatus).length;
+    
+    const totalCategories = categories.length;
+    const totalRevenue = orders
+      .filter(o => o.status === 'completed' as OrderStatus)
+      .reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+    
+    // Calculate stock statistics
+    const sizeStats = products.reduce((acc, product) => {
+      if (product.sizes) {
+        product.sizes.forEach((size: any) => {
+          const sizeName = size.size;
+          if (sizeName && !acc[sizeName]) {
+            acc[sizeName] = 0;
+          }
+          if (sizeName) {
+            acc[sizeName] += size.quantity || 0;
+          }
+        });
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const totalStock = Object.values(sizeStats).reduce((sum: number, qty: any) => sum + (qty as number), 0);
+
+    console.log('✅ Dashboard Stats - Calculated:', {
+      totalProducts,
+      availableProducts,
+      outOfStockProducts,
+      totalOrders,
+      pendingOrders,
+      completedOrders,
+      totalCategories,
+      totalRevenue,
+      totalStock
+    });
+
+    return {
+      totalProducts,
+      availableProducts,
+      outOfStockProducts,
+      totalOrders,
+      pendingOrders,
+      completedOrders,
+      totalCategories,
+      totalRevenue,
+      totalStock,
+      sizeStats
+    };
+  }, [products, orders, categories]);
+
+  // Auto-refresh dashboard when data changes
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      // Refresh dashboard data when products or orders change
+      const refreshDashboard = () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['categories'] });
+      };
+
+      // Set up interval for periodic refresh when on dashboard
+      const interval = setInterval(refreshDashboard, 30000); // Refresh every 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, queryClient]);
+
+  // Auto-refresh dashboard when returning from other tabs
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      // Refresh dashboard data when switching back to dashboard
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    }
+  }, [activeTab, queryClient]);
+
   // Background refetch when switching tabs (silent refresh)
-  const handleTabSwitch = (tab: 'products' | 'orders' | 'categories' | 'sizes') => {
+  const handleTabSwitch = (tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'sizes' | 'reservations') => {
     setActiveTab(tab);
+    setIsMenuOpen(false); // Close menu when switching tabs
     
     // Silently refresh data for the selected tab
     switch (tab) {
+      case 'dashboard':
+        // Refresh all data for dashboard
+        queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['categories'] });
+        break;
       case 'products':
         queryClient.invalidateQueries({ queryKey: ['admin-products'] });
         break;
@@ -233,6 +351,9 @@ export default function AdminDashboard() {
         break;
       case 'categories':
         queryClient.invalidateQueries({ queryKey: ['categories'] });
+        break;
+      case 'reservations':
+        // Reservations will be fetched by the ReservationsManagement component
         break;
     }
   };
@@ -317,22 +438,47 @@ export default function AdminDashboard() {
     });
   }, [products, debouncedSearchQuery]);
 
+  // Helper function to translate order status to Serbian
+  const getStatusTranslation = (status: OrderStatus): string => {
+    const statusTranslations: Record<OrderStatus, string> = {
+      'čekanje': 'Na čekanju',
+      'Completed': 'Završeno',
+      'Shipped': 'Poslato',
+      'InTransit': 'U Tranzitu',
+      'cancelled': 'Otkazano'
+    };
+    return statusTranslations[status] || status;
+  };
+
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
-    if (!debouncedSearchQuery.trim()) return orders;
     
-    const searchLower = debouncedSearchQuery.toLowerCase();
+    let filtered = orders;
     
-    return orders.filter(order => {
-      // Search by order slug/ID
-      const slugMatch = (order.slug?.toLowerCase() || '').includes(searchLower);
-      // Pretraga po e-pošti kupca
-      const emailMatch = typeof order.user_email === 'object' && 
-        (order.user_email?.email?.toLowerCase() || '').includes(searchLower) || false;
-      
-      return slugMatch || emailMatch;
-    });
-  }, [orders, debouncedSearchQuery]);
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(order => order.status === statusFilter);
+    }
+    
+    // Filter by search query
+    if (debouncedSearchQuery.trim()) {
+      const searchLower = debouncedSearchQuery.toLowerCase();
+      filtered = filtered.filter(order => {
+        // Search by order slug/ID
+        const slugMatch = (order.slug?.toLowerCase() || '').includes(searchLower);
+        // Search by customer email
+        const emailMatch = typeof order.user_email === 'object' && 
+          order.user_email && 'email' in order.user_email &&
+          ((order.user_email as any).email?.toLowerCase() || '').includes(searchLower) || false;
+        // Search by status translation
+        const statusMatch = getStatusTranslation(order.status).toLowerCase().includes(searchLower);
+        
+        return slugMatch || emailMatch || statusMatch;
+      });
+    }
+    
+    return filtered;
+  }, [orders, debouncedSearchQuery, statusFilter]);
 
   const filteredCategories = useMemo(() => {
     if (!categories) return [];
@@ -345,58 +491,316 @@ export default function AdminDashboard() {
     );
   }, [categories, debouncedSearchQuery]);
 
+  // Dashboard Component
+  const DashboardComponent = () => (
+    <ScrollView style={styles.dashboardContainer} showsVerticalScrollIndicator={false}>
+      {/* Welcome Header with Refresh Button */}
+      <View style={styles.dashboardHeader}>
+        <View>
+          <Text style={styles.dashboardTitle}>Kontrolna tabla</Text>
+          <Text style={styles.dashboardSubtitle}>Pregled svih aktivnosti</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.refreshButton}
+          onPress={async () => {
+            setIsRefreshing(true);
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
+              queryClient.invalidateQueries({ queryKey: ['admin-orders'] }),
+              queryClient.invalidateQueries({ queryKey: ['categories'] })
+            ]);
+            setIsRefreshing(false);
+          }}
+        >
+          <Ionicons 
+            name="refresh" 
+            size={20} 
+            color="#667eea" 
+            style={isRefreshing ? { transform: [{ rotate: '180deg' }] } : {}}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Quick Stats */}
+      <View style={styles.quickStatsContainer}>
+        <View style={styles.quickStatsRow}>
+          <View style={[styles.quickStatCard, { backgroundColor: '#2ECC71' }]}>
+            <Ionicons name="cube-outline" size={24} color="white" />
+            <Text style={styles.quickStatNumber}>{dashboardStats.totalProducts}</Text>
+            <Text style={styles.quickStatLabel}>Proizvoda</Text>
+          </View>
+          <View style={[styles.quickStatCard, { backgroundColor: '#3498DB' }]}>
+            <Ionicons name="receipt-outline" size={24} color="white" />
+            <Text style={styles.quickStatNumber}>{dashboardStats.totalOrders}</Text>
+            <Text style={styles.quickStatLabel}>Narudžbina</Text>
+          </View>
+        </View>
+        <View style={styles.quickStatsRow}>
+          <View style={[styles.quickStatCard, { backgroundColor: '#E67E22' }]}>
+            <Ionicons name="cash-outline" size={24} color="white" />
+            <Text style={styles.quickStatNumber}>{dashboardStats.totalRevenue.toLocaleString()} RSD</Text>
+            <Text style={styles.quickStatLabel}>Prihod</Text>
+          </View>
+          <View style={[styles.quickStatCard, { backgroundColor: '#8E44AD' }]}>
+            <Ionicons name="layers-outline" size={24} color="white" />
+            <Text style={styles.quickStatNumber}>{dashboardStats.totalCategories}</Text>
+            <Text style={styles.quickStatLabel}>Kategorija</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Detailed Statistics */}
+      <View style={styles.detailedStatsContainer}>
+        <Text style={styles.sectionTitle}>Detaljne statistike</Text>
+        
+        {/* Products Stats */}
+        <View style={styles.statsCard}>
+          <View style={styles.statsHeader}>
+            <Ionicons name="cube-outline" size={20} color="#667eea" />
+            <Text style={styles.statsCardTitle}>Proizvodi</Text>
+          </View>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{dashboardStats.totalProducts}</Text>
+              <Text style={styles.statLabel}>Ukupno</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statNumber, { color: '#2ECC71' }]}>{dashboardStats.availableProducts}</Text>
+              <Text style={styles.statLabel}>Dostupni</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statNumber, { color: '#E74C3C' }]}>{dashboardStats.outOfStockProducts}</Text>
+              <Text style={styles.statLabel}>Nema na stanju</Text>
+            </View>
+          </View>
+        </View>
+
+         {/* Stock Stats */}
+         <View style={styles.statsCard}>
+          <View style={styles.statsHeader}>
+            <Ionicons name="storefront-outline" size={20} color="#667eea" />
+            <Text style={styles.statsCardTitle}>Zalihe</Text>
+          </View>
+          <View style={styles.stockInfo}>
+            <Text style={styles.stockTotal}>Ukupne zalihe: {dashboardStats.totalStock as number} komada</Text>
+            {Object.keys(dashboardStats.sizeStats).length > 0 && (
+              <View style={styles.sizeStatsContainer}>
+                {Object.entries(dashboardStats.sizeStats)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([size, quantity]) => (
+                    <View key={size} style={styles.sizeStatItem}>
+                      <Text style={styles.sizeStatText}>{size}: {quantity as number}</Text>
+                    </View>
+                  ))}
+              </View>
+            )}
+          </View>
+        </View>
+
+         {/* Orders Stats */}
+         <View style={styles.statsCard}>
+          <View style={styles.statsHeader}>
+            <Ionicons name="receipt-outline" size={20} color="#667eea" />
+            <Text style={styles.statsCardTitle}>Narudžbine</Text>
+          </View>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{dashboardStats.totalOrders}</Text>
+              <Text style={styles.statLabel}>Ukupno</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statNumber, { color: '#F39C12' }]}>{dashboardStats.pendingOrders}</Text>
+              <Text style={styles.statLabel}>Na čekanju</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statNumber, { color: '#27AE60' }]}>{dashboardStats.completedOrders}</Text>
+              <Text style={styles.statLabel}>Završene</Text>
+            </View>
+          </View>
+        </View>
+
+      </View>
+
+       
+
+       
+
+      {/* Quick Actions */}
+      <View style={styles.quickActionsContainer}>
+        <Text style={styles.sectionTitle}>Brze akcije</Text>
+        <View style={styles.quickActionsGrid}>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => handleTabSwitch('products')}
+          >
+            <LinearGradient colors={['#2ECC71', '#27AE60']} style={styles.quickActionGradient}>
+              <Ionicons name="cube-outline" size={24} color="white" />
+              <Text style={styles.quickActionText}>Proizvodi</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => handleTabSwitch('orders')}
+          >
+            <LinearGradient colors={['#3498DB', '#2980B9']} style={styles.quickActionGradient}>
+              <Ionicons name="receipt-outline" size={24} color="white" />
+              <Text style={styles.quickActionText}>Narudžbine</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => handleTabSwitch('categories')}
+          >
+            <LinearGradient colors={['#8E44AD', '#9B59B6']} style={styles.quickActionGradient}>
+              <Ionicons name="layers-outline" size={24} color="white" />
+              <Text style={styles.quickActionText}>Kategorije</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => handleTabSwitch('reservations')}
+          >
+            <LinearGradient colors={['#E67E22', '#D35400']} style={styles.quickActionGradient}>
+              <Ionicons name="calendar-outline" size={24} color="white" />
+              <Text style={styles.quickActionText}>Rezervacije</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Admin Dashboard</Text>
-          <Text style={styles.subtitle}>Welcome, {user?.email}</Text>
-        </View>
+      {/* Collapsible Menu Header */}
+      <View style={styles.menuHeader}>
+        <TouchableOpacity 
+          style={styles.menuToggle}
+          onPress={() => setIsMenuOpen(!isMenuOpen)}
+        >
+          <Ionicons 
+            name={isMenuOpen ? "close" : "menu"} 
+            size={24} 
+            color="#667eea" 
+          />
+        </TouchableOpacity>
+        <Text style={styles.menuTitle}>Admin Panel</Text>
         <TouchableOpacity 
           style={styles.signOutButton}
           onPress={handleSignOut}
         >
-          <Text style={styles.buttonText}>Sign Out</Text>
+          <Ionicons name="log-out-outline" size={20} color="#667eea" />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'products' && styles.activeTab]}
-          onPress={() => handleTabSwitch('products')}
-        >
-          <Text style={[styles.tabText, activeTab === 'products' && styles.activeTabText]}>
-            Products
-          </Text>
-        </TouchableOpacity>
+      {/* Collapsible Menu */}
+      {isMenuOpen && (
+        <View style={styles.collapsibleMenu}>
+          <View style={styles.menuGrid}>
+            <TouchableOpacity
+              style={[styles.menuItem, activeTab === 'dashboard' && styles.activeMenuItem]}
+              onPress={() => handleTabSwitch('dashboard')}
+            >
+              <View style={[styles.menuIconContainer, activeTab === 'dashboard' && styles.activeMenuIconContainer]}>
+                <Ionicons 
+                  name="grid-outline" 
+                  size={20} 
+                  color={activeTab === 'dashboard' ? '#fff' : '#667eea'} 
+                />
+              </View>
+              <Text style={[styles.menuText, activeTab === 'dashboard' && styles.activeMenuText]}>
+                Kontrola
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
-          onPress={() => handleTabSwitch('orders')}
-        >
-          <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
-            Orders
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuItem, activeTab === 'products' && styles.activeMenuItem]}
+              onPress={() => handleTabSwitch('products')}
+            >
+              <View style={[styles.menuIconContainer, activeTab === 'products' && styles.activeMenuIconContainer]}>
+                <Ionicons 
+                  name="cube-outline" 
+                  size={20} 
+                  color={activeTab === 'products' ? '#fff' : '#667eea'} 
+                />
+              </View>
+              <Text style={[styles.menuText, activeTab === 'products' && styles.activeMenuText]}>
+                Proizvodi
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'categories' && styles.activeTab]}
-          onPress={() => handleTabSwitch('categories')}
-        >
-          <Text style={[styles.tabText, activeTab === 'categories' && styles.activeTabText]}>
-            Categories
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuItem, activeTab === 'orders' && styles.activeMenuItem]}
+              onPress={() => handleTabSwitch('orders')}
+            >
+              <View style={[styles.menuIconContainer, activeTab === 'orders' && styles.activeMenuIconContainer]}>
+                <Ionicons 
+                  name="receipt-outline" 
+                  size={20} 
+                  color={activeTab === 'orders' ? '#fff' : '#667eea'} 
+                />
+              </View>
+              <Text style={[styles.menuText, activeTab === 'orders' && styles.activeMenuText]}>
+                Narudžbine
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'sizes' && styles.activeTab]}
-          onPress={() => handleTabSwitch('sizes')}
-        >
-          <Text style={[styles.tabText, activeTab === 'sizes' && styles.activeTabText]}>
-            Sizes
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity
+              style={[styles.menuItem, activeTab === 'categories' && styles.activeMenuItem]}
+              onPress={() => handleTabSwitch('categories')}
+            >
+              <View style={[styles.menuIconContainer, activeTab === 'categories' && styles.activeMenuIconContainer]}>
+                <Ionicons 
+                  name="layers-outline" 
+                  size={20} 
+                  color={activeTab === 'categories' ? '#fff' : '#667eea'} 
+                />
+              </View>
+              <Text style={[styles.menuText, activeTab === 'categories' && styles.activeMenuText]}>
+                Kategorije
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, activeTab === 'sizes' && styles.activeMenuItem]}
+              onPress={() => handleTabSwitch('sizes')}
+            >
+              <View style={[styles.menuIconContainer, activeTab === 'sizes' && styles.activeMenuIconContainer]}>
+                <Ionicons 
+                  name="resize-outline" 
+                  size={20} 
+                  color={activeTab === 'sizes' ? '#fff' : '#667eea'} 
+                />
+              </View>
+              <Text style={[styles.menuText, activeTab === 'sizes' && styles.activeMenuText]}>
+                Veličine
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, activeTab === 'reservations' && styles.activeMenuItem]}
+              onPress={() => handleTabSwitch('reservations')}
+            >
+              <View style={[styles.menuIconContainer, activeTab === 'reservations' && styles.activeMenuIconContainer]}>
+                <Ionicons 
+                  name="calendar-outline" 
+                  size={20} 
+                  color={activeTab === 'reservations' ? '#fff' : '#667eea'} 
+                />
+              </View>
+              <Text style={[styles.menuText, activeTab === 'reservations' && styles.activeMenuText]}>
+                Rezervacije
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Dashboard Tab */}
+      {activeTab === 'dashboard' && <DashboardComponent />}
 
       {(activeTab === 'products' || activeTab === 'orders') && (
         <View style={styles.searchContainer}>
@@ -405,8 +809,8 @@ export default function AdminDashboard() {
             style={styles.searchInput}
             placeholder={
               activeTab === 'orders' 
-                ? "Search orders by email or order ID..." 
-                : "Search products..."
+                ? "Pretraži narudžbine po email-u, ID-u ili statusu..." 
+                : "Pretraži proizvode..."
             }
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -424,6 +828,107 @@ export default function AdminDashboard() {
               <ActivityIndicator size="small" color="#666" />
             </View>
           )}
+        </View>
+      )}
+
+      {/* Status Filter for Orders */}
+      {activeTab === 'orders' && (
+        <View style={styles.statusFilterContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.statusFilterScroll}
+          >
+            <TouchableOpacity
+              style={[
+                styles.statusFilterButton, 
+                { 
+                  backgroundColor: statusFilter === 'all' ? '#2ECC71' : '#f3f4f6',
+                  borderColor: statusFilter === 'all' ? '#2ECC71' : '#e9ecef'
+                }
+              ]}
+              onPress={() => setStatusFilter('all')}
+            >
+              <Text style={[styles.statusFilterText, statusFilter === 'all' && styles.activeStatusFilterText]}>
+                Sve
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.statusFilterButton, 
+                { 
+                  backgroundColor: statusFilter === 'čekanje' ? '#F39C12' : '#f3f4f6',
+                  borderColor: statusFilter === 'čekanje' ? '#F39C12' : '#e9ecef'
+                }
+              ]}
+              onPress={() => setStatusFilter('čekanje')}
+            >
+              <Text style={[styles.statusFilterText, statusFilter === 'čekanje' && styles.activeStatusFilterText]}>
+                Na čekanju
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.statusFilterButton, 
+                { 
+                  backgroundColor: statusFilter === 'InTransit' ? '#3498DB' : '#f3f4f6',
+                  borderColor: statusFilter === 'InTransit' ? '#3498DB' : '#e9ecef'
+                }
+              ]}
+              onPress={() => setStatusFilter('InTransit')}
+            >
+              <Text style={[styles.statusFilterText, statusFilter === 'InTransit' && styles.activeStatusFilterText]}>
+                U Tranzitu
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.statusFilterButton, 
+                { 
+                  backgroundColor: statusFilter === 'Shipped' ? '#9B59B6' : '#f3f4f6',
+                  borderColor: statusFilter === 'Shipped' ? '#9B59B6' : '#e9ecef'
+                }
+              ]}
+              onPress={() => setStatusFilter('Shipped')}
+            >
+              <Text style={[styles.statusFilterText, statusFilter === 'Shipped' && styles.activeStatusFilterText]}>
+                Poslato
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.statusFilterButton, 
+                { 
+                  backgroundColor: statusFilter === 'Completed' ? '#27AE60' : '#f3f4f6',
+                  borderColor: statusFilter === 'Completed' ? '#27AE60' : '#e9ecef'
+                }
+              ]}
+              onPress={() => setStatusFilter('Completed')}
+            >
+              <Text style={[styles.statusFilterText, statusFilter === 'Completed' && styles.activeStatusFilterText]}>
+                Završeno
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.statusFilterButton, 
+                { 
+                  backgroundColor: statusFilter === 'cancelled' ? '#E74C3C' : '#f3f4f6',
+                  borderColor: statusFilter === 'cancelled' ? '#E74C3C' : '#e9ecef'
+                }
+              ]}
+              onPress={() => setStatusFilter('cancelled')}
+            >
+              <Text style={[styles.statusFilterText, statusFilter === 'cancelled' && styles.activeStatusFilterText]}>
+                Otkazano
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       )}
 
@@ -462,7 +967,9 @@ export default function AdminDashboard() {
             <OrderList
               orders={filteredOrders ? filteredOrders.map(order => ({
                 ...order,
-                user_email: typeof order.user_email === 'string' ? order.user_email : order.user_email?.email || 'Unknown'
+                user_email: typeof order.user_email === 'string' ? order.user_email : 
+                  (typeof order.user_email === 'object' && order.user_email && 'email' in order.user_email ? (order.user_email as any).email : 'Unknown'),
+                status: getStatusTranslation(order.status) as any // Translate status for display
               })) : []}
               isLoading={ordersLoading}
               onUpdateStatus={updateOrderStatus}
@@ -505,6 +1012,13 @@ export default function AdminDashboard() {
 
       {activeTab === 'sizes' && (
         <SizeManagement />
+      )}
+
+      {activeTab === 'reservations' && (
+        <>
+          {console.log('Admin - rendering ReservationsManagement component')}
+          <ReservationsManagement />
+        </>
       )}
 
       <ModernProductModal
@@ -552,70 +1066,305 @@ export default function AdminDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f9fa',
   },
-  header: {
+  // Dashboard Styles
+  dashboardContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  dashboardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
   },
-  title: {
+  dashboardTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 5,
+    color: '#2c3e50',
+    marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 0,
+  dashboardSubtitle: {
+    fontSize: 14,
+    color: '#6c757d',
   },
-  tabContainer: {
+  refreshButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  welcomeHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    paddingTop: 50,
+  },
+  welcomeContent: {
     flexDirection: 'row',
-    marginBottom: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 4,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 8,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderRadius: 6,
   },
-  activeTab: {
-    backgroundColor: '#fff',
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 4,
+  },
+  welcomeSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  quickStatsContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  quickStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  quickStatCard: {
+    flex: 1,
+    marginHorizontal: 4,
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  quickStatNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  quickStatLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    textAlign: 'center',
+  },
+  detailedStatsContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 16,
+  },
+  statsCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2,
   },
-  tabText: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '500',
+  statsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  activeTabText: {
-    color: '#000',
+  statsCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginLeft: 8,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 20,
     fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6c757d',
+    textAlign: 'center',
+  },
+  stockInfo: {
+    marginTop: 8,
+  },
+  stockTotal: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#495057',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sizeStatsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sizeStatItem: {
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  sizeStatText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#495057',
+  },
+  quickActionsContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  quickActionButton: {
+    width: (width - 60) / 2,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  quickActionGradient: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  // Collapsible Menu Styles
+  menuHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  menuToggle: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+  },
+  menuTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  collapsibleMenu: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  menuGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    justifyContent: 'space-between',
+  },
+  menuItem: {
+    width: (width - 80) / 2, // 2 items per row with more spacing
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    marginHorizontal: 4,
+    borderRadius: 16,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  activeMenuItem: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+    elevation: 2,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  menuIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  activeMenuIconContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  menuText: {
+    color: '#495057',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  activeMenuText: {
+    color: 'white',
+    fontWeight: '600',
   },
   signOutButton: {
-    backgroundColor: '#d32f2f',
-    padding: 10,
+    padding: 8,
     borderRadius: 8,
-    minWidth: 100,
-    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
+  // Existing styles for other components
   previewContainer: {
     marginTop: 20,
     alignItems: 'center',
@@ -643,16 +1392,24 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   searchContainer: {
+    marginTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
-    marginBottom: 15,
+    marginHorizontal: 16,
+    marginBottom: 16,
     backgroundColor: '#fff',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   searchInput: {
+
     flex: 1,
     fontSize: 16,
     marginLeft: 8,
@@ -675,6 +1432,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6c757d',
     textAlign: 'center',
+  },
+  // Status Filter Styles
+  statusFilterContainer: {
+    backgroundColor: 'white',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  statusFilterScroll: {
+    paddingHorizontal: 16,
+  },
+  statusFilterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  activeStatusFilter: {
+    backgroundColor: '#2ECC71',
+    borderColor: '#2ECC71',
+  },
+  statusFilterText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#495057',
+  },
+  activeStatusFilterText: {
+    color: 'white',
+    fontWeight: '600',
   },
   errorContainer: {
     flex: 1,

@@ -45,7 +45,7 @@ const formatDate = (dateString: string): string => {
 // Function to get Serbian status labels
 const getStatusLabel = (status: string): string => {
   const statusLabels: Record<string, string> = {
-    'čekanje': 'ČEKA',
+    'čekanje': 'NA ČEKANJU',
     'Completed': 'ZAVRŠENO',
     'Shipped': 'POSLATO',
     'InTransit': 'U TRANZITU',

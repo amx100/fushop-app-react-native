@@ -282,7 +282,7 @@ export default function EditProfilePage() {
                           onChangeText={onChange}
                           onBlur={onBlur}
                           autoCapitalize="words"
-                          autoComplete="address-level2"
+                          autoComplete="address-line2"
                         />
                       )}
                     />
@@ -307,7 +307,7 @@ export default function EditProfilePage() {
                           onChangeText={onChange}
                           onBlur={onBlur}
                           autoCapitalize="words"
-                          autoComplete="country-name"
+                          autoComplete="country"
                         />
                       )}
                     />

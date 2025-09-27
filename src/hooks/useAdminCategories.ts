@@ -37,6 +37,9 @@ export const useAdminCategories = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      // Also refresh dashboard data when category is created
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       Toast.show('Category created successfully', { type: 'success' });
     },
     onError: (error: Error) => {
@@ -55,6 +58,9 @@ export const useAdminCategories = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      // Also refresh dashboard data when category is updated
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       Toast.show('Category updated successfully', { type: 'success' });
     },
     onError: (error: Error) => {
@@ -73,6 +79,9 @@ export const useAdminCategories = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      // Also refresh dashboard data when category is deleted
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       Toast.show('Category deleted successfully', { type: 'success' });
     },
     onError: (error: Error) => {
