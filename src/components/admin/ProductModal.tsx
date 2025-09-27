@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -73,9 +73,19 @@ export function ModernProductModal({
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [showSizeDropdown, setShowSizeDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const titleInputRef = useRef<TextInput>(null);
 
   const { data: allCategories } = useCategories();
   const { data: sizes } = useSizes();
+
+  useEffect(() => {
+    if (visible && titleInputRef.current) {
+      // Small delay to ensure modal is fully rendered
+      setTimeout(() => {
+        titleInputRef.current?.focus();
+      }, 100);
+    }
+  }, [visible]);
 
   const handleAddSize = () => {
     if (!selectedSize || !newQuantity) {
@@ -132,7 +142,6 @@ export function ModernProductModal({
       await onSubmit(finalFormData);
       onClose();
     } catch (error) {
-      console.error('Greška prilikom spremanja proizvoda:', error);
       Alert.alert('Greška', (error as Error).message);
     } finally {
       setIsLoading(false);
@@ -146,7 +155,6 @@ export function ModernProductModal({
         onChange({ heroImage: uploadedUrl });
       }
     } catch (error) {
-      console.error('Greška pri odabiru slike:', error);
       Alert.alert('Greška', 'Nije moguće učitati sliku');
     }
   };
@@ -190,7 +198,8 @@ export function ModernProductModal({
         <LinearGradient colors={['#ff9a56', '#ff6b35']} style={styles.gradient}>
           <KeyboardAvoidingView 
             style={styles.keyboardContainer}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
           >
             {/* Header */}
             <BlurView intensity={95} tint="dark" style={styles.header}>
@@ -250,7 +259,7 @@ export function ModernProductModal({
                       ) : (
                         <View style={styles.imagePlaceholder}>
                           <View style={styles.uploadIconContainer}>
-                            <Feather name="upload" size={32} color="#667eea" />
+                            <Feather name="upload" size={32} color="#ff6b35" />
                           </View>
                           <Text style={styles.uploadText}>Dodaj sliku</Text>
                           <Text style={styles.uploadSubtext}>Dodirnite za odabir</Text>
@@ -269,11 +278,13 @@ export function ModernProductModal({
                     <View style={styles.inputGroup}>
                       <Text style={styles.inputLabel}>Naziv proizvoda *</Text>
                       <TextInput
+                        ref={titleInputRef}
                         style={styles.textInput}
                         value={formData.title}
                         onChangeText={(text) => onChange({ title: text })}
                         placeholder="Unesite naziv proizvoda"
                         placeholderTextColor="#94a3b8"
+                        returnKeyType="next"
                       />
                     </View>
 
@@ -479,10 +490,10 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   section: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: 'rgba(255,255,255,0.98)',
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: '#ff6b35',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 12,
@@ -497,7 +508,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: '#333',
   },
   imageContainer: {
     height: 200,
@@ -534,7 +545,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: '#fff5f0',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -555,18 +566,18 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
+    color: '#333',
     marginBottom: 8,
   },
   textInput: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: '#e0e0e0',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1f2937',
+    color: '#333',
   },
   sizeInputContainer: {
     marginBottom: 16,
@@ -579,7 +590,7 @@ const styles = StyleSheet.create({
     flex: 2,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: '#e0e0e0',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -589,7 +600,7 @@ const styles = StyleSheet.create({
   },
   dropdownText: {
     fontSize: 16,
-    color: '#1f2937',
+    color: '#333',
   },
   dropdownPlaceholder: {
     color: '#94a3b8',
@@ -598,16 +609,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: '#e0e0e0',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1f2937',
+    color: '#333',
     textAlign: 'center',
   },
   addButton: {
-    backgroundColor: '#667eea',
+    backgroundColor: '#ff6b35',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 8,
@@ -638,11 +649,11 @@ const styles = StyleSheet.create({
   sizeText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: '#333',
   },
   sizeQuantity: {
     fontSize: 12,
-    color: '#667eea',
+    color: '#ff6b35',
     fontWeight: '500',
   },
   removeSizeButton: {
@@ -651,12 +662,12 @@ const styles = StyleSheet.create({
   searchInput: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: '#e0e0e0',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1f2937',
+    color: '#333',
     marginBottom: 16,
   },
   categoriesGrid: {
@@ -676,12 +687,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   selectedCategoryCard: {
-    backgroundColor: '#667eea',
-    borderColor: '#667eea',
+    backgroundColor: '#ff6b35',
+    borderColor: '#ff6b35',
   },
   categoryText: {
     fontSize: 14,
-    color: '#374151',
+    color: '#333',
     fontWeight: '500',
   },
   selectedCategoryText: {
@@ -704,7 +715,7 @@ const styles = StyleSheet.create({
   dropdownTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1f2937',
+    color: '#333',
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -716,7 +727,7 @@ const styles = StyleSheet.create({
   },
   dropdownItemText: {
     fontSize: 16,
-    color: '#374151',
+    color: '#333',
   },
 });
 

@@ -92,7 +92,6 @@ export default function AuthPage() {
             });
 
           if (profileError) {
-            console.error('Error creating user profile:', profileError);
             // If it's a duplicate key error, the user might already exist
             if (profileError.code === '23505') {
               Alert.alert('Greška', 'Nalog sa ovim email-om već postoji. Pokušajte da se prijavite.');

@@ -37,7 +37,6 @@ export class ReservationService {
     });
     
     if (error) {
-      console.error('Error checking eligibility:', error);
       return false;
     }
     
@@ -112,14 +111,12 @@ export class ReservationService {
 
       return { success: true, reservationId: reservation.id };
     } catch (error) {
-      console.error('Error creating reservation:', error);
       return { success: false, error: 'Greška pri kreiranju rezervacije' };
     }
   }
 
   // Get user's reservations
   static async getUserReservations(userId: string): Promise<ReservationWithItems[]> {
-    console.log('getUserReservations called with userId:', userId);
     
     const { data, error } = await supabase
       .from('reservations')
@@ -134,14 +131,11 @@ export class ReservationService {
       .eq('user_id', userId)
       .order('reservation_date', { ascending: true });
 
-    console.log('Supabase query result:', { data, error });
 
     if (error) {
-      console.error('Error fetching reservations:', error);
       return [];
     }
 
-    console.log('Returning reservations:', data || []);
     return data || [];
   }
 
@@ -162,7 +156,6 @@ export class ReservationService {
       .single();
 
     if (error) {
-      console.error('Error fetching reservation:', error);
       return null;
     }
 
@@ -188,7 +181,6 @@ export class ReservationService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error cancelling reservation:', error);
       return { success: false, error: 'Greška pri otkazivanju rezervacije' };
     }
   }
@@ -225,7 +217,6 @@ export class ReservationService {
 
       return { success: false, error: 'Rezervacija nema povezanu porudžbinu' };
     } catch (error) {
-      console.error('Error confirming reservation:', error);
       return { success: false, error: 'Greška pri potvrđivanju rezervacije' };
     }
   }
@@ -237,7 +228,6 @@ export class ReservationService {
       // For now, return a placeholder implementation
       return { success: true, processed: 0 };
     } catch (error) {
-      console.error('Error processing reservations:', error);
       return { success: false, error: 'Greška pri obradi rezervacija', processed: 0 };
     }
   }
@@ -253,7 +243,6 @@ export class ReservationService {
 
       return { success: true, cancelled: data || 0 };
     } catch (error) {
-      console.error('Error cancelling unconfirmed reservations:', error);
       return { success: false, error: 'Greška pri otkazivanju nepotvrđenih rezervacija', cancelled: 0 };
     }
   }

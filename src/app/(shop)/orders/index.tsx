@@ -37,7 +37,6 @@ const formatDate = (dateString: string): string => {
     
     return `${month} ${day}, ${year}`;
   } catch (error) {
-    console.error('Date formatting error:', error);
     return 'Date error';
   }
 };
@@ -93,7 +92,7 @@ const renderItem: ListRenderItem<OrderWithDetails> = ({ item }) => {
         formattedPrice = item.totalPrice.toFixed(2);
       }
     } catch (priceError) {
-      console.error('Price formatting error:', priceError);
+      // Handle price formatting error silently
     }
 
     return (
@@ -125,9 +124,6 @@ const renderItem: ListRenderItem<OrderWithDetails> = ({ item }) => {
       </Link>
     );
   } catch (renderError) {
-    console.error('Error rendering order item:', renderError);
-    console.error('Item data:', item);
-    
     return (
       <View style={styles.orderContainer}>
         <Text style={styles.errorText}>Error displaying order</Text>
@@ -189,7 +185,6 @@ const Orders = () => {
  
 
       if (err) {
-        console.error('Fetch orders error:', err);
         throw err;
       }
 
@@ -226,8 +221,6 @@ const Orders = () => {
          
             ordersWithDetails.push(transformedOrder);
           } catch (orderError) {
-            console.error(`Error processing order ${i}:`, orderError);
-            console.error('Order data:', order);
           }
         }
       } else {
@@ -236,7 +229,6 @@ const Orders = () => {
 
       return ordersWithDetails;
     } catch (err) {
-      console.error('Fetch orders catch error:', err);
       setError(err as Error);
       return null;
     }
@@ -274,7 +266,6 @@ const Orders = () => {
         }
         setIsLoading(false);
       } catch (effectError) {
-        console.error('useEffect error:', effectError);
         setError(effectError as Error);
         setIsLoading(false);
       }
@@ -302,7 +293,6 @@ const Orders = () => {
             setOrders(refreshedOrders);
           }
         } catch (err) {
-          console.error('Error refreshing orders on focus:', err);
         }
       };
       
@@ -375,7 +365,6 @@ const Orders = () => {
       </View>
     );
   } catch (componentError) {
-    console.error('Component render error:', componentError);
     return (
       <View style={styles.container}>
         <Stack.Screen options={{ title: 'Orders' }} />

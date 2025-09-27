@@ -59,7 +59,6 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       if (error) throw error;
       setUser(userData);
     } catch (error) {
-      console.error('Error fetching user data:', error);
     }
   };
 
@@ -93,7 +92,6 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       router.replace('/');
       
     } catch (error) {
-      console.error('Error in signOut:', error);
       // Even if there's an error, clear state and redirect
       setSession(null);
       setUser(null);
@@ -121,7 +119,6 @@ export default function AuthProvider({ children }: PropsWithChildren) {
           }
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
       } finally {
         if (mounted) {
           setIsLoading(false);

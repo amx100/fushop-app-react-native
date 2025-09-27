@@ -163,7 +163,6 @@ export default function Cart() {
         });
       }
     } catch (error) {
-      console.error('Error checking profile completeness:', error);
       setProfileComplete(false);
     }
   };
@@ -215,7 +214,6 @@ export default function Cart() {
           setSelectedShipping(data[0].id);
         }
       } catch (error) {
-        console.error('Error fetching shipping options:', error);
       } finally {
         setShippingLoading(false);
       }
@@ -337,7 +335,6 @@ export default function Cart() {
         ]
       );
     } catch (error) {
-      console.error('Checkout error:', error);
       
       Alert.alert(
         'Greška',

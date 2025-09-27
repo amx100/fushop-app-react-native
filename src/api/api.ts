@@ -180,7 +180,6 @@ export const createOrder = () => {
         .single();
 
       if (orderError || !orderData) {
-        console.error('Order creation error:', orderError);
         throw new Error(
           'An error occurred while creating order: ' + orderError?.message
         );
@@ -272,14 +271,10 @@ export const createOrder = () => {
                 })
                 .eq('id', item.id);
 
-              if (updateError) {
-                console.error('Error updating product status:', updateError);
-              } else {
-                console.log(`📊 Product ${item.id} status updated: ${totalQuantity > 0 ? 'available' : 'out_of_stock'} (total quantity: ${totalQuantity})`);
-              }
+            
             }
           } catch (statusError) {
-            console.error('Error updating product status:', statusError);
+            
           }
         }
 
@@ -306,7 +301,6 @@ export const createOrder = () => {
     },
 
     onError: (error) => {
-      console.error('Mutation error:', error);
       throw error;
     },
   });

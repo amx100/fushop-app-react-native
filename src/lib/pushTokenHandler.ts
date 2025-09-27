@@ -37,10 +37,11 @@ export async function registerForPushNotificationsAsync() {
         })
         .eq('id', user.id);
 
-      if (error) console.error('Error saving push token', error);
+      if (error) {
+        // Handle error silently
+      }
     }
 
   } catch (error) {
-    console.error('Push token registration error:', error);
   }
 } 

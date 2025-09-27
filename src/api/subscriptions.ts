@@ -24,8 +24,7 @@ export const useOrderUpdateSubscription = () => {
         )
         .subscribe();
     } catch (error) {
-      console.warn('Failed to set up realtime subscription:', error);
-      console.warn('Orders will still work, but real-time updates are disabled');
+      // Failed to set up realtime subscription, but orders will still work
       return () => {}; // Return empty cleanup function
     }
 
@@ -34,7 +33,6 @@ export const useOrderUpdateSubscription = () => {
         try {
           subscriptionResponse.unsubscribe();
         } catch (error) {
-          console.warn('Error unsubscribing from realtime:', error);
         }
       }
     };
