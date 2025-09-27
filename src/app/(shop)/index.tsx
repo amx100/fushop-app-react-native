@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     marginBottom: 16,
   },
   sectionTitle: {
@@ -295,7 +295,7 @@ const SearchAndFilter = memo(({
       <Ionicons name="search" size={20} color="#666" />
       <TextInput
         style={styles.searchInput}
-        placeholder="Search.."
+        placeholder="Pretraga.."
         value={searchQuery}
         onChangeText={onSearchChange}
         placeholderTextColor="#666"
@@ -321,11 +321,11 @@ const BannerSection = memo(() => (
     >
       <View style={styles.bannerContent}>
         <View style={styles.bannerTextContainer}>
-          <Text style={styles.bannerSubtitle}>Today Only</Text>
-          <Text style={styles.bannerTitle}>80% OFF</Text>
-          <Text style={styles.bannerDescription}>Super Discount</Text>
+          <Text style={styles.bannerSubtitle}>Danas samo</Text>
+          <Text style={styles.bannerTitle}>80% POPUST</Text>
+          <Text style={styles.bannerDescription}>Super popust</Text>
           <TouchableOpacity style={styles.shopNowButton}>
-            <Text style={styles.shopNowText}>Shop Now</Text>
+            <Text style={styles.shopNowText}>Kupi sada</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.bannerImageContainer}>
@@ -356,9 +356,9 @@ const CategoriesSection = memo(({ categories }: { categories: Tables<'category'>
   return (
     <View style={styles.categoriesSection}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Categories</Text>
+        <Text style={styles.sectionTitle}>Kategorije</Text>
         <TouchableOpacity>
-          <Text style={styles.seeAllText}>See All</Text>
+          <Text style={styles.seeAllText}>Vidi sve</Text>
         </TouchableOpacity>
       </View>
       {categories && categories.length > 0 ? (
@@ -379,7 +379,7 @@ const CategoriesSection = memo(({ categories }: { categories: Tables<'category'>
         </ScrollView>
       ) : (
         <View style={styles.emptyCategoriesContainer}>
-          <Text style={styles.emptyCategoriesText}>No categories available</Text>
+          <Text style={styles.emptyCategoriesText}>Nema kategorija</Text>
         </View>
       )}
     </View>
@@ -492,7 +492,7 @@ export default function ShopIndex() {
             colors={['#ff6b35', '#ff4757']}
             style={styles.retryButtonGradient}
           >
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>Pokušaj ponovo</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -518,12 +518,7 @@ export default function ShopIndex() {
         
         <View style={styles.productsSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Products</Text>
-            <TouchableOpacity onPress={() => router.push('/(shop)/auth')}>
-              <Text style={styles.seeAllText}>
-                {session ? 'Profile' : 'Sign In'}
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>Proizvodi</Text>
           </View>
           
           {sortedProducts.length > 0 ? (
@@ -540,7 +535,7 @@ export default function ShopIndex() {
               <Text style={styles.emptyProductsText}>
                 {searchQuery || filters.categories.length > 0 || 
                  filters.priceRange.min > 0 || filters.priceRange.max < 5000 || 
-                 filters.inStock ? 'No products match your filters' : 'No products available'}
+                filters.inStock ? 'Nema proizvoda koji odgovaraju vašim filtrom' : 'Nema proizvoda dostupnih'}
               </Text>
               {(searchQuery || filters.categories.length > 0 || 
                 filters.priceRange.min > 0 || filters.priceRange.max < 5000 || 

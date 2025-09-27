@@ -18,15 +18,15 @@ export default function ProfilePage() {
 
   const handleSignOut = async () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      'Odjavi se',
+      'Da li ste sigurni da želite da se odjavite?',
       [
         {
-          text: 'Cancel',
+          text: 'Otkaži',
           style: 'cancel',
         },
         {
-          text: 'Sign Out',
+          text: 'Odjavi se',
           style: 'destructive',
           onPress: async () => {
             await signOut();
@@ -46,8 +46,8 @@ export default function ProfilePage() {
           <View style={styles.content}>
             <View style={styles.header}>
               <Ionicons name="person-outline" size={80} color="white" />
-              <Text style={styles.title}>Not Signed In</Text>
-              <Text style={styles.subtitle}>Please sign in to view your profile</Text>
+              <Text style={styles.title}>Nije Prijavljeni</Text>
+              <Text style={styles.subtitle}>Molimo prijavite se da biste videli svoj profil</Text>
             </View>
             
             <TouchableOpacity
@@ -58,7 +58,7 @@ export default function ProfilePage() {
                 colors={['#ff6b35', '#ff4757']}
                 style={styles.signInButtonGradient}
               >
-                <Text style={styles.signInButtonText}>Sign In</Text>
+                <Text style={styles.signInButtonText}>Prijavi se</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -89,12 +89,12 @@ export default function ProfilePage() {
 
           <View style={styles.profileContainer}>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Account Information</Text>
+              <Text style={styles.sectionTitle}>Informacije o Nalogu</Text>
               
               <View style={styles.infoRow}>
                 <Ionicons name="mail-outline" size={20} color="#666" />
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Email</Text>
+                  <Text style={styles.infoLabel}>Email *</Text>
                   <Text style={styles.infoValue}>{user.email}</Text>
                 </View>
               </View>
@@ -102,7 +102,7 @@ export default function ProfilePage() {
               <View style={styles.infoRow}>
                 <Ionicons name="person-outline" size={20} color="#666" />
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Name</Text>
+                  <Text style={styles.infoLabel}>Ime *</Text>
                   <Text style={styles.infoValue}>
                     {user.name} {user.last_name}
                   </Text>
@@ -113,7 +113,7 @@ export default function ProfilePage() {
                 <View style={styles.infoRow}>
                   <Ionicons name="call-outline" size={20} color="#666" />
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Phone</Text>
+                    <Text style={styles.infoLabel}>Broj Telefona</Text>
                     <Text style={styles.infoValue}>{user.phone}</Text>
                   </View>
                 </View>
@@ -123,7 +123,7 @@ export default function ProfilePage() {
                 <View style={styles.infoRow}>
                   <Ionicons name="location-outline" size={20} color="#666" />
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Address</Text>
+                    <Text style={styles.infoLabel}>Adresa</Text>
                     <Text style={styles.infoValue}>{user.address}</Text>
                   </View>
                 </View>
@@ -132,9 +132,9 @@ export default function ProfilePage() {
               <View style={styles.infoRow}>
                 <Ionicons name="shield-outline" size={20} color="#666" />
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Account Type</Text>
+                  <Text style={styles.infoLabel}>Tip Naloga</Text>
                   <Text style={styles.infoValue}>
-                    {user.type === 'admin' ? 'Administrator' : 'Customer'}
+                    {user.type === 'admin' ? 'Administrator' : 'Kupac'}
                   </Text>
                 </View>
               </View>
@@ -149,7 +149,7 @@ export default function ProfilePage() {
                 style={styles.editButtonGradient}
               >
                 <Ionicons name="create-outline" size={20} color="white" />
-                <Text style={styles.editButtonText}>Edit Profile</Text>
+                <Text style={styles.editButtonText}>Izmeni Profil</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -162,7 +162,7 @@ export default function ProfilePage() {
                 style={styles.signOutButtonGradient}
               >
                 <Ionicons name="log-out-outline" size={20} color="white" />
-                <Text style={styles.signOutButtonText}>Sign Out</Text>
+                <Text style={styles.signOutButtonText}>Odjavi se</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>

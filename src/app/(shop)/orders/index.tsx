@@ -207,7 +207,7 @@ const Orders = () => {
           try {
             const transformedOrder: OrderWithDetails = {
               id: order.id || 0,
-              slug: order.slug || `order-${order.id}`,
+              slug: order.slug || `Narudžbina`,
               created_at: order.created_at || new Date().toISOString(),
               totalPrice: Number(order.totalprice) || 0,
               status: (order.status || 'čekanje') as OrderStatus,

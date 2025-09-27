@@ -258,7 +258,7 @@ const OrderItem = React.memo(
         {/* === Zaglavlje kartice (uvek vidljivo) === */}
         <View style={styles.cardHeader}>
           <View style={styles.cardHeaderInfo}>
-            <Text style={styles.orderId}>Porudžbina #{order.slug}</Text>
+            <Text style={styles.orderId}>Porudžbina #{order.id}</Text>
             <Text style={styles.customerName}>{customerName}</Text>
             <Text style={styles.orderEmail}>{customerEmail}</Text>
             <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>

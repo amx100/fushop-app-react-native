@@ -27,9 +27,7 @@ export default function ReservationsPage() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Rezervacije</Text>
-          <Text style={styles.headerSubtitle}>
-            Upravljajte svojim rezervacijama proizvoda
-          </Text>
+      
         </View>
 
         <ReservationsList onReservationPress={handleReservationPress} />

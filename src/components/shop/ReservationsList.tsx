@@ -201,11 +201,7 @@ export const ReservationsList: React.FC<ReservationsListProps> = ({ onReservatio
               </TouchableOpacity>
             )}
 
-            {reservation.status === 'confirmed' && !reservation.order_id && (
-              <Text style={styles.waitingText}>
-                Čeka se automatsko kreiranje porudžbine...
-              </Text>
-            )}
+           
 
             {reservation.status === 'pending' && (
               <Text style={styles.infoText}>

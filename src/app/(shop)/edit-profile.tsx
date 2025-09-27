@@ -92,14 +92,14 @@ export default function EditProfilePage() {
       // Refresh user data in auth provider
       await refreshUser();
 
-      Alert.alert('Success', 'Profile updated successfully!', [
+      Alert.alert('Uspeh', 'Profil je uspešno ažuriran!', [
         {
           text: 'OK',
-          onPress: () => router.back(),
+          onPress: () => router.replace('/(shop)/profile'),
         },
       ]);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update profile');
+      Alert.alert('Greška', error.message || 'Neuspešno ažuriranje profila');
     } finally {
       setIsSaving(false);
     }
@@ -107,11 +107,11 @@ export default function EditProfilePage() {
 
   const handleCancel = () => {
     Alert.alert(
-      'Cancel',
-      'Are you sure you want to discard your changes?',
+      'Otkaži Izmene',
+      'Da li ste sigurni da želite da otkažete izmene?',
       [
-        { text: 'Keep Editing', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+        { text: 'Nastavi Izmenu', style: 'cancel' },
+        { text: 'Odbaci Izmene', style: 'destructive', onPress: () => router.replace('/(shop)/profile') },
       ]
     );
   };
@@ -148,21 +148,21 @@ export default function EditProfilePage() {
           <View style={styles.header}>
             <TouchableOpacity 
               style={styles.backButton}
-              onPress={() => router.back()}
+              onPress={() => router.replace('/(shop)/profile')}
             >
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
-            <Text style={styles.title}>Edit Profile</Text>
+            <Text style={styles.title}>Izmeni Profil</Text>
             <View style={styles.placeholder} />
           </View>
 
           <View style={styles.formContainer}>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Personal Information</Text>
+              <Text style={styles.sectionTitle}>Osobne Informacije</Text>
               
               <View style={styles.nameRow}>
                 <View style={[styles.inputContainer, styles.halfWidth]}>
-                  <Text style={styles.label}>First Name *</Text>
+                  <Text style={styles.label}>Ime *</Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
                     <Controller
@@ -171,7 +171,7 @@ export default function EditProfilePage() {
                       render={({ field: { onChange, onBlur, value } }) => (
                         <TextInput
                           style={styles.input}
-                          placeholder="Enter your first name"
+                          placeholder="Unesite svoje ime"
                           value={value}
                           onChangeText={onChange}
                           onBlur={onBlur}
@@ -187,7 +187,7 @@ export default function EditProfilePage() {
                 </View>
 
                 <View style={[styles.inputContainer, styles.halfWidth]}>
-                  <Text style={styles.label}>Last Name *</Text>
+                  <Text style={styles.label}>Prezime *</Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
                     <Controller
@@ -196,7 +196,7 @@ export default function EditProfilePage() {
                       render={({ field: { onChange, onBlur, value } }) => (
                         <TextInput
                           style={styles.input}
-                          placeholder="Enter your last name"
+                          placeholder="Unesite svoje prezime"
                           value={value}
                           onChangeText={onChange}
                           onBlur={onBlur}
@@ -213,7 +213,7 @@ export default function EditProfilePage() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Phone Number</Text>
+                <Text style={styles.label}>Broj Telefona</Text>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="call-outline" size={20} color="#666" style={styles.inputIcon} />
                   <Controller
@@ -222,7 +222,7 @@ export default function EditProfilePage() {
                     render={({ field: { onChange, onBlur, value } }) => (
                       <TextInput
                         style={styles.input}
-                        placeholder="Enter your phone number"
+                        placeholder="Unesite svoj broj telefona"
                         value={value}
                         onChangeText={onChange}
                         onBlur={onBlur}
@@ -239,10 +239,10 @@ export default function EditProfilePage() {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Address Information</Text>
+              <Text style={styles.sectionTitle}>Adresna Informacija</Text>
               
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Address</Text>
+                <Text style={styles.label}>Adresa</Text>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="location-outline" size={20} color="#666" style={styles.inputIcon} />
                   <Controller
@@ -251,7 +251,7 @@ export default function EditProfilePage() {
                     render={({ field: { onChange, onBlur, value } }) => (
                       <TextInput
                         style={styles.input}
-                        placeholder="Enter your address"
+                        placeholder="Unesite svoju adresu"
                         value={value}
                         onChangeText={onChange}
                         onBlur={onBlur}
@@ -268,7 +268,7 @@ export default function EditProfilePage() {
 
               <View style={styles.nameRow}>
                 <View style={[styles.inputContainer, styles.halfWidth]}>
-                  <Text style={styles.label}>City</Text>
+                  <Text style={styles.label}>Grad</Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="business-outline" size={20} color="#666" style={styles.inputIcon} />
                     <Controller
@@ -277,7 +277,7 @@ export default function EditProfilePage() {
                       render={({ field: { onChange, onBlur, value } }) => (
                         <TextInput
                           style={styles.input}
-                          placeholder="Enter your city"
+                          placeholder="Unesite svoj grad"
                           value={value}
                           onChangeText={onChange}
                           onBlur={onBlur}
@@ -293,7 +293,7 @@ export default function EditProfilePage() {
                 </View>
 
                 <View style={[styles.inputContainer, styles.halfWidth]}>
-                  <Text style={styles.label}>Country</Text>
+                  <Text style={styles.label}>Država</Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="globe-outline" size={20} color="#666" style={styles.inputIcon} />
                     <Controller
@@ -302,7 +302,7 @@ export default function EditProfilePage() {
                       render={({ field: { onChange, onBlur, value } }) => (
                         <TextInput
                           style={styles.input}
-                          placeholder="Enter your country"
+                          placeholder="Unesite svoju državu"
                           value={value}
                           onChangeText={onChange}
                           onBlur={onBlur}
@@ -319,7 +319,7 @@ export default function EditProfilePage() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Postal Code</Text>
+                <Text style={styles.label}>Poštanski Broj</Text>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
                   <Controller
@@ -328,7 +328,7 @@ export default function EditProfilePage() {
                     render={({ field: { onChange, onBlur, value } }) => (
                       <TextInput
                         style={styles.input}
-                        placeholder="Enter your postal code"
+                        placeholder="Unesite svoj poštanski broj"
                         value={value}
                         onChangeText={onChange}
                         onBlur={onBlur}
@@ -350,7 +350,7 @@ export default function EditProfilePage() {
                 onPress={handleCancel}
                 disabled={isSaving}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>Otkaži</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -367,7 +367,7 @@ export default function EditProfilePage() {
                   ) : (
                     <>
                       <Ionicons name="checkmark" size={20} color="white" />
-                      <Text style={styles.saveButtonText}>Save Changes</Text>
+                      <Text style={styles.saveButtonText}>Sačuvaj Promene</Text>
                     </>
                   )}
                 </LinearGradient>

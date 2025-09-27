@@ -46,7 +46,7 @@ export default function RootLayout() {
                   name='(shop)/edit-profile'
                   options={{ 
                     headerShown: false,
-                    title: 'Edit Profile',
+                    title: 'Izmeni Profil',
                   }}
                 />
                 <Stack.Screen

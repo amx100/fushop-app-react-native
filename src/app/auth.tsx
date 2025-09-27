@@ -52,10 +52,10 @@ export default function AuthPage() {
       });
 
       if (error) throw error;
-      Alert.alert('Success', 'Logged in successfully!');
+      Alert.alert('Uspeh', 'Prijavljeni ste!');
       router.replace('/(shop)');
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Greška', error.message);
     } finally {
       setIsLoading(false);
     }
@@ -95,23 +95,23 @@ export default function AuthPage() {
             console.error('Error creating user profile:', profileError);
             // If it's a duplicate key error, the user might already exist
             if (profileError.code === '23505') {
-              Alert.alert('Error', 'An account with this email already exists. Please try signing in instead.');
+              Alert.alert('Greška', 'Nalog sa ovim email-om već postoji. Pokušajte da se prijavite.');
               return;
             }
             // For other profile errors, still show success for auth but warn about profile
-            Alert.alert('Warning', 'Account created but there was an issue with your profile. Please contact support.');
+            Alert.alert('Upozorenje', 'Nalog je kreiran, ali postoji problem sa vašim profilom. Molimo vas da kontaktirate podršku.');
           }
         }
       }
 
-      Alert.alert('Success', 'Account created! Please check your email to verify your account.');
+      Alert.alert('Uspeh', 'Nalog je kreiran! Molimo vas da proverite svoj email da biste verifikovali nalog.');
       router.replace('/(shop)');
     } catch (error: any) {
       // Handle specific Supabase auth errors
       if (error?.message?.includes('already registered')) {
-        Alert.alert('Error', 'An account with this email already exists. Please try signing in instead.');
+        Alert.alert('Greška', 'Nalog sa ovim email-om već postoji. Pokušajte da se prijavite.');
       } else {
-        Alert.alert('Error', error.message);
+        Alert.alert('Greška', error.message);
       }
     } finally {
       setIsLoading(false);
@@ -139,10 +139,10 @@ export default function AuthPage() {
         >
           <View style={styles.header}>
             <Text style={styles.title}>
-              {isLogin ? 'Welcome Back' : 'Create Account'}
+              {isLogin ? 'Dobrodošli' : 'Kreirajte nalog'}
             </Text>
             <Text style={styles.subtitle}>
-              {isLogin ? 'Sign in to continue' : 'Sign up to get started'}
+              {isLogin ? 'Prijavite se da biste nastavili' : 'Kreirajte nalog da biste započeli'}
             </Text>
           </View>
 
@@ -159,7 +159,7 @@ export default function AuthPage() {
                       render={({ field: { onChange, onBlur, value } }) => (
                         <TextInput
                           style={styles.input}
-                          placeholder="Enter your email"
+                          placeholder="Unesite email"
                           value={value}
                           onChangeText={onChange}
                           onBlur={onBlur}
@@ -323,7 +323,7 @@ export default function AuthPage() {
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Confirm Password</Text>
+                  <Text style={styles.label}>Potvrdite lozinku</Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
                     <Controller
@@ -332,7 +332,7 @@ export default function AuthPage() {
                       render={({ field: { onChange, onBlur, value } }) => (
                         <TextInput
                           style={styles.input}
-                          placeholder="Confirm your password"
+                          placeholder="Potvrdite lozinku"
                           value={value}
                           onChangeText={onChange}
                           onBlur={onBlur}

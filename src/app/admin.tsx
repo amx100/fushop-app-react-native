@@ -251,12 +251,12 @@ export default function AdminDashboard() {
     const outOfStockProducts = products.filter(p => p.status === 'out_of_stock').length;
     
     const totalOrders = orders.length;
-    const pendingOrders = orders.filter(o => o.status === 'pending' as OrderStatus).length;
-    const completedOrders = orders.filter(o => o.status === 'completed' as OrderStatus).length;
+    const pendingOrders = orders.filter(o => o.status === 'čekanje' as OrderStatus).length;
+    const completedOrders = orders.filter(o => o.status === 'Completed' as OrderStatus).length;
     
     const totalCategories = categories.length;
     const totalRevenue = orders
-      .filter(o => o.status === 'completed' as OrderStatus)
+      .filter(o => o.status === 'Completed' as OrderStatus)
       .reduce((sum, order) => sum + (order.totalPrice || 0), 0);
     
     // Calculate stock statistics
@@ -323,37 +323,49 @@ export default function AdminDashboard() {
   // Auto-refresh dashboard when returning from other tabs
   useEffect(() => {
     if (activeTab === 'dashboard') {
-      // Refresh dashboard data when switching back to dashboard
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      console.log('🔄 Dashboard activated - refreshing data...');
+      
+      // Force refresh svih podataka
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['categories'] })
+      ]).then(() => {
+        console.log('✅ Dashboard data refreshed');
+      });
     }
   }, [activeTab, queryClient]);
 
   // Background refetch when switching tabs (silent refresh)
   const handleTabSwitch = (tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'sizes' | 'reservations') => {
+    console.log('🔄 handleTabSwitch: Switching to tab:', tab);
     setActiveTab(tab);
     setIsMenuOpen(false); // Close menu when switching tabs
     
-    // Silently refresh data for the selected tab
+    // Force refresh za svaki tab
     switch (tab) {
       case 'dashboard':
-        // Refresh all data for dashboard
+        console.log('🔄 handleTabSwitch: Refreshing dashboard data...');
+        // Za dashboard refresh sve
         queryClient.invalidateQueries({ queryKey: ['admin-products'] });
         queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
         queryClient.invalidateQueries({ queryKey: ['categories'] });
         break;
       case 'products':
+        console.log('🔄 handleTabSwitch: Refreshing products data...');
         queryClient.invalidateQueries({ queryKey: ['admin-products'] });
         break;
       case 'orders':
+        console.log('🔄 handleTabSwitch: Refreshing orders data...');
         queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
         break;
       case 'categories':
+        console.log('🔄 handleTabSwitch: Refreshing categories data...');
         queryClient.invalidateQueries({ queryKey: ['categories'] });
         break;
       case 'reservations':
-        // Reservations will be fetched by the ReservationsManagement component
+        console.log('🔄 handleTabSwitch: Reservations component will fetch its own data');
+        // Reservations component će fetchovati svoje podatke
         break;
     }
   };
@@ -503,13 +515,30 @@ export default function AdminDashboard() {
         <TouchableOpacity 
           style={styles.refreshButton}
           onPress={async () => {
+            console.log('🔄 Manual refresh: Starting...');
             setIsRefreshing(true);
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
-              queryClient.invalidateQueries({ queryKey: ['admin-orders'] }),
-              queryClient.invalidateQueries({ queryKey: ['categories'] })
-            ]);
-            setIsRefreshing(false);
+            try {
+              await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
+                queryClient.invalidateQueries({ queryKey: ['admin-orders'] }),
+                queryClient.invalidateQueries({ queryKey: ['categories'] })
+              ]);
+              
+              // Sačekaj da se podaci učitaju
+              await Promise.all([
+                queryClient.refetchQueries({ queryKey: ['admin-products'] }),
+                queryClient.refetchQueries({ queryKey: ['admin-orders'] }),
+                queryClient.refetchQueries({ queryKey: ['categories'] })
+              ]);
+              
+              console.log('✅ Manual refresh: Data refreshed successfully');
+              Toast.show('Podaci su osveženi', { type: 'success' });
+            } catch (error) {
+              console.error('❌ Manual refresh: Error refreshing data:', error);
+              Toast.show('Greška pri osvežavanju podataka', { type: 'error' });
+            } finally {
+              setIsRefreshing(false);
+            }
           }}
         >
           <Ionicons 

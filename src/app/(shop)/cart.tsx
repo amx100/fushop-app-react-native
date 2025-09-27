@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   ScrollView,
   TextInput,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -111,6 +112,9 @@ export default function Cart() {
   });
   const [useExistingData, setUseExistingData] = useState(true);
 
+  // Animation for empty state
+  const [emptyStateAnimation] = useState(new Animated.Value(0));
+
   // Shipping options state
   const [selectedShipping, setSelectedShipping] = useState<number | null>(null);
   const [shippingOptions, setShippingOptions] = useState<Tables<'shipping_options'>[]>([]);
@@ -176,6 +180,22 @@ export default function Cart() {
     }, [session?.user?.id])
   );
 
+  // Animate empty state when cart is empty
+  useEffect(() => {
+    if (items.length === 0) {
+      Animated.sequence([
+        Animated.delay(300),
+        Animated.timing(emptyStateAnimation, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      emptyStateAnimation.setValue(0);
+    }
+  }, [items.length, emptyStateAnimation]);
+
   // Fetch shipping options
   useEffect(() => {
     const fetchShippingOptions = async () => {
@@ -214,7 +234,13 @@ export default function Cart() {
       <View style={styles.container}>
         <StatusBar barStyle={Platform.OS === 'ios' ? 'light-content' : 'dark-content'} />
         <View style={styles.emptyStateContainer}>
-          <Text style={styles.emptyCartText}>Loading...</Text>
+          <View style={styles.emptyStateIcon}>
+            <Ionicons name="hourglass-outline" size={64} color="#888" />
+          </View>
+          <Text style={styles.emptyCartTitle}>Učitavanje...</Text>
+          <Text style={styles.emptyCartSubtitle}>
+            Molimo sačekajte dok se podaci učitavaju
+          </Text>
         </View>
       </View>
     );
@@ -225,17 +251,28 @@ export default function Cart() {
       <View style={styles.container}>
         <StatusBar barStyle={Platform.OS === 'ios' ? 'light-content' : 'dark-content'} />
         <View style={styles.emptyStateContainer}>
-        <Ionicons name="lock-closed" size={64} color="#888" />
-          <Text style={styles.emptyCartText}>Morate biti prijavljeni da biste videli svoju korpu</Text>
+          <View style={styles.emptyStateIcon}>
+            <Ionicons name="lock-closed" size={64} color="#888" />
+          </View>
+          <Text style={styles.emptyCartTitle}>Morate biti prijavljeni</Text>
+          <Text style={styles.emptyCartSubtitle}>
+            Prijavite se da biste videli svoju korpu i nastavili sa kupovinom
+          </Text>
           <TouchableOpacity 
-          style={styles.loginButton}
-          onPress={() => router.push('/profile')}
-        >
-          <Text style={styles.loginButtonText}>Prijavite se</Text>
-        </TouchableOpacity>
+            style={styles.shopNowButton}
+            onPress={() => router.push('/profile')}
+          >
+            <LinearGradient
+              colors={['#667eea', '#764ba2']}
+              style={styles.shopNowGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons name="log-in-outline" size={20} color="white" />
+              <Text style={styles.shopNowText}>Prijavite se</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
-     
-
       </View>
     );
   }
@@ -315,11 +352,7 @@ export default function Cart() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Cart</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+  
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Cart Items */}
@@ -336,9 +369,58 @@ export default function Cart() {
             ))}
           </View>
         ) : (
-          <View style={styles.emptyStateContainer}>
-            <Text style={styles.emptyCartText}>Your cart is empty</Text>
-          </View>
+          <Animated.View 
+            style={[
+              styles.emptyStateContainer,
+              {
+                opacity: emptyStateAnimation,
+                transform: [
+                  {
+                    translateY: emptyStateAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [30, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Animated.View 
+              style={[
+                styles.emptyStateIcon,
+                {
+                  transform: [
+                    {
+                      scale: emptyStateAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Ionicons name="cart-outline" size={80} color="#e0e0e0" />
+            </Animated.View>
+            <Text style={styles.emptyCartTitle}>Vaša korpa je prazna</Text>
+            <Text style={styles.emptyCartSubtitle}>
+              Dodajte proizvode u korpu da biste nastavili sa kupovinom
+            </Text>
+            <TouchableOpacity 
+              style={styles.shopNowButton}
+              onPress={() => router.push('/(shop)')}
+            >
+              <LinearGradient
+                colors={['#ff6b35', '#ff4757']}
+                style={styles.shopNowGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="storefront-outline" size={20} color="white" />
+                <Text style={styles.shopNowText}>Idi u prodavnicu</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
         )}
 
         {/* Shipping Options */}
@@ -830,7 +912,59 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  emptyStateIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  emptyCartTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  emptyCartSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  shopNowButton: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    shadowColor: '#ff6b35',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+    transform: [{ scale: 1 }],
+  },
+  shopNowGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+  },
+  shopNowText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
   emptyCartText: {
     marginTop: 15,

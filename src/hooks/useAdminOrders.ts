@@ -429,8 +429,32 @@ export function useAdminOrders() {
     },
   });
 
-  const updateOrderStatus = (orderId: number, newStatus: OrderStatus) => {
-    updateOrderStatusMutation.mutate({ orderId, newStatus });
+  const updateOrderStatus = async (orderId: number, newStatus: OrderStatus) => {
+    try {
+      console.log('🔄 updateOrderStatus: Starting update for order:', orderId, 'to status:', newStatus);
+      
+      // Postojeći kod za ažuriranje...
+      const { error } = await supabase
+        .from('order')
+        .update({ status: newStatus })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      console.log('✅ updateOrderStatus: Order updated successfully');
+
+      // DODAJ OVO - invalidate queries nakon ažuriranja
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      
+      console.log('✅ updateOrderStatus: Queries invalidated');
+
+      Toast.show('Status narudžbe je uspešno ažuriran', { type: 'success' });
+    } catch (error) {
+      console.error('❌ updateOrderStatus: Error updating order status:', error);
+      Toast.show('Greška pri ažuriranju statusa', { type: 'error' });
+    }
   };
 
   // Set up real-time subscription

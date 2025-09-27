@@ -81,27 +81,43 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
   };
 
   const handleConfirmReservation = async (reservationId: number) => {
-    try {
-      const { error } = await supabase
-        .from('reservations')
-        .update({ status: 'confirmed' })
-        .eq('id', reservationId);
+    Alert.alert(
+      'Potvrdi i procesuiraj rezervaciju',
+      'Da li želite da potvrdite i odmah procesuirate ovu rezervaciju? Ovo će kreirati narudžbinu.',
+      [
+        { text: 'Odustani', style: 'cancel' },
+        {
+          text: 'Potvrdi i procesuiraj',
+          onPress: async () => {
+            try {
+              console.log('🔄 Confirming and processing reservation:', reservationId);
+              
+              // Pozovi Supabase funkciju za procesiranje rezervacije
+              const { data, error } = await supabase.functions.invoke('process-reservations', {
+                body: { reservation_id: reservationId }
+              });
 
-      if (error) {
-        Alert.alert('Greška', 'Greška pri potvrđivanju rezervacije');
-        return;
-      }
+              if (error) {
+                console.error('❌ Error processing reservation:', error);
+                Alert.alert('Greška', 'Greška pri procesiranju rezervacije');
+                return;
+              }
 
-      Alert.alert('Uspešno', 'Rezervacija je potvrđena');
-      fetchReservations();
-      // Refresh dashboard data when reservation is confirmed
-      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-    } catch (error) {
-      console.error('Error confirming reservation:', error);
-      Alert.alert('Greška', 'Greška pri potvrđivanju rezervacije');
-    }
+              console.log('✅ Reservation processed successfully:', data);
+              Alert.alert('Uspešno', 'Rezervacija je potvrđena i procesuirana. Narudžbina je kreirana.');
+              fetchReservations();
+              // Refresh dashboard data when reservation is processed (creates new order)
+              queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+              queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+              queryClient.invalidateQueries({ queryKey: ['categories'] });
+            } catch (error) {
+              console.error('❌ Error processing reservation:', error);
+              Alert.alert('Greška', 'Greška pri procesiranju rezervacije');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleCancelReservation = async (reservationId: number) => {
@@ -141,41 +157,6 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
     );
   };
 
-  const handleProcessReservation = async (reservationId: number) => {
-    Alert.alert(
-      'Procesuiraj rezervaciju',
-      'Da li želite da procesuirate ovu rezervaciju i kreirate porudžbinu?',
-      [
-        { text: 'Ne', style: 'cancel' },
-        {
-          text: 'Da, procesuiraj',
-          onPress: async () => {
-            try {
-              // Pozovi Supabase funkciju za procesiranje rezervacije
-              const { data, error } = await supabase.functions.invoke('process-reservations', {
-                body: { reservation_id: reservationId }
-              });
-
-              if (error) {
-                Alert.alert('Greška', 'Greška pri procesiranju rezervacije');
-                return;
-              }
-
-              Alert.alert('Uspešno', 'Rezervacija je procesuirana i porudžbina je kreirana');
-              fetchReservations();
-              // Refresh dashboard data when reservation is processed (creates new order)
-              queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-              queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-              queryClient.invalidateQueries({ queryKey: ['categories'] });
-            } catch (error) {
-              console.error('Error processing reservation:', error);
-              Alert.alert('Greška', 'Greška pri procesiranju rezervacije');
-            }
-          }
-        }
-      ]
-    );
-  };
 
   const processReservations = async () => {
     Alert.alert(
@@ -459,7 +440,7 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
                       onPress={() => handleConfirmReservation(reservation.id)}
                     >
                       <Ionicons name="checkmark" size={16} color="#4caf50" />
-                      <Text style={styles.confirmButtonText}>Potvrdi</Text>
+                      <Text style={styles.confirmButtonText}>Potvrdi i procesuiraj</Text>
                     </TouchableOpacity>
                     
                     <TouchableOpacity
@@ -472,14 +453,10 @@ export const ReservationsManagement: React.FC<ReservationsManagementProps> = ({ 
                   </>
                 )}
 
-                {reservation.status === 'confirmed' && !reservation.order_id && (
-                  <TouchableOpacity
-                    style={styles.processButton}
-                    onPress={() => handleProcessReservation(reservation.id)}
-                  >
-                    <Ionicons name="arrow-forward" size={16} color="#2196F3" />
-                    <Text style={styles.processButtonText}>Procesuiraj</Text>
-                  </TouchableOpacity>
+                {reservation.status === 'confirmed' && (
+                  <Text style={styles.confirmedText}>
+                    Rezervacija je potvrđena i procesuirana
+                  </Text>
                 )}
 
                 {reservation.status === 'cancelled' && (
@@ -726,5 +703,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#f44336',
     fontStyle: 'italic',
+  },
+  confirmedText: {
+    fontSize: 12,
+    color: '#4caf50',
+    fontStyle: 'italic',
+    fontWeight: '500',
   },
 });

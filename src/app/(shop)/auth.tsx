@@ -141,10 +141,10 @@ export default function AuthPage() {
           password: data.password,
         });
         if (error) throw error;
-        Alert.alert('Success', 'Logged in successfully!');
+        Alert.alert('Uspeh', 'Prijavljeni ste!');
         // navigation will be handled by auth state change effect
       } catch (err: any) {
-        Alert.alert('Error', err?.message ?? 'Unknown error');
+        Alert.alert('Greška', err?.message ?? 'Nepoznata greška');
       } finally {
         setIsLoading(false);
       }
@@ -182,11 +182,11 @@ export default function AuthPage() {
               console.error('Error creating user profile:', profileError);
               // If it's a duplicate key error, the user might already exist
               if (profileError.code === '23505') {
-                Alert.alert('Error', 'An account with this email already exists. Please try signing in instead.');
+                Alert.alert('Greška', 'Nalog sa ovim email-om već postoji. Pokušajte da se prijavite.');
                 return;
               }
               // For other profile errors, still show success for auth but warn about profile
-              Alert.alert('Warning', 'Account created but there was an issue with your profile. Please contact support.');
+              Alert.alert('Upozorenje', 'Nalog je kreiran, ali postoji problem sa vašim profilom. Molimo vas da kontaktirate podršku.');
               return;
             }
             // User profile created successfully
@@ -195,13 +195,13 @@ export default function AuthPage() {
           }
         }
 
-        Alert.alert('Success', 'Account created! Please check your email to verify your account.');
+        Alert.alert('Uspeh', 'Nalog je kreiran! Molimo vas da proverite svoj email da biste verifikovali nalog.');
       } catch (err: any) {
         // Handle specific Supabase auth errors
         if (err?.message?.includes('already registered')) {
-          Alert.alert('Error', 'An account with this email already exists. Please try signing in instead.');
+          Alert.alert('Greška', 'Nalog sa ovim email-om već postoji. Pokušajte da se prijavite.');
         } else {
-          Alert.alert('Error', err?.message ?? 'Unknown error');
+          Alert.alert('Greška', err?.message ?? 'Nepoznata greška');
         }
       } finally {
         setIsLoading(false);
@@ -255,8 +255,8 @@ export default function AuthPage() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>{isLogin ? 'Welcome Back' : 'Create Account'}</Text>
-            <Text style={styles.subtitle}>{isLogin ? 'Sign in to continue' : 'Sign up to get started'}</Text>
+            <Text style={styles.title}>{isLogin ? 'Dobrodošli' : 'Kreirajte nalog'}</Text>
+            <Text style={styles.subtitle}>{isLogin ? 'Prijavite se da biste nastavili' : 'Kreirajte nalog da biste započeli'}</Text>
           </View>
 
           <View style={styles.formContainer}>
@@ -266,7 +266,7 @@ export default function AuthPage() {
                 <ControlledInput
                   control={loginForm.control}
                   name="email"
-                  placeholder="Enter your email"
+                  placeholder="Unesite email"
                   icon={<Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -274,11 +274,11 @@ export default function AuthPage() {
                   textContentType="emailAddress"
                 />
 
-                <Text style={styles.label}>Password</Text>
+                <Text style={styles.label}>Lozinka</Text>
                 <ControlledInput
                   control={loginForm.control}
                   name="password"
-                  placeholder="Enter your password"
+                  placeholder="Unesite lozinku"
                   icon={<Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />}
                   secureTextEntry
                   autoComplete="password"
@@ -290,7 +290,7 @@ export default function AuthPage() {
                   disabled={isLoading}
                 >
                   <LinearGradient colors={['#ff6b35', '#ff4757']} style={styles.submitButtonGradient}>
-                    {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.submitButtonText}>Sign In</Text>}
+                    {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.submitButtonText}>Prijavite se</Text>}
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -298,11 +298,11 @@ export default function AuthPage() {
               <View style={styles.form}>
                 <View style={styles.nameRow}>
                   <View style={[styles.halfWidth]}>
-                    <Text style={styles.label}>First Name</Text>
+                    <Text style={styles.label}>Ime</Text>
                     <ControlledInput
                       control={registrationForm.control}
                       name="firstName"
-                      placeholder="First name"
+                      placeholder="Unesite svoje ime"
                       icon={<Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />}
                       autoCapitalize="words"
                       autoComplete="name-given"
@@ -310,11 +310,11 @@ export default function AuthPage() {
                   </View>
 
                   <View style={[styles.halfWidth]}>
-                    <Text style={styles.label}>Last Name</Text>
+                    <Text style={styles.label}>Prezime</Text>
                     <ControlledInput
                       control={registrationForm.control}
                       name="lastName"
-                      placeholder="Last name"
+                      placeholder="Unesite svoje prezime"
                       icon={<Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />}
                       autoCapitalize="words"
                       autoComplete="name-family"
@@ -326,7 +326,7 @@ export default function AuthPage() {
                 <ControlledInput
                   control={registrationForm.control}
                   name="email"
-                  placeholder="Enter your email"
+                  placeholder="Unesite email"
                   icon={<Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -334,21 +334,21 @@ export default function AuthPage() {
                   textContentType="emailAddress"
                 />
 
-                <Text style={styles.label}>Password</Text>
+                  <Text style={styles.label}>Lozinka</Text>
                 <ControlledInput
                   control={registrationForm.control}
                   name="password"
-                  placeholder="Enter your password"
+                  placeholder="Unesite lozinku"
                   icon={<Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />}
                   secureTextEntry
                   autoComplete="password-new"
                 />
 
-                <Text style={styles.label}>Confirm Password</Text>
+                <Text style={styles.label}>Potvrdite lozinku</Text>
                 <ControlledInput
                   control={registrationForm.control}
                   name="confirmPassword"
-                  placeholder="Confirm your password"
+                  placeholder="Potvrdite lozinku"
                   icon={<Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />}
                   secureTextEntry
                   autoComplete="password-new"
@@ -368,7 +368,7 @@ export default function AuthPage() {
 
             <TouchableOpacity style={styles.switchButton} onPress={toggleMode}>
               <Text style={styles.switchButtonText}>
-                {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+                {isLogin ? "Nemate nalog? Kreirajte nalog" : "Već imate nalog? Prijavite se"}
               </Text>
             </TouchableOpacity>
 

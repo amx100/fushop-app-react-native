@@ -187,7 +187,7 @@ export function ModernProductModal({
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <SafeAreaView style={styles.container}>
-        <LinearGradient colors={['#667eea', '#764ba2']} style={styles.gradient}>
+        <LinearGradient colors={['#ff9a56', '#ff6b35']} style={styles.gradient}>
           <KeyboardAvoidingView 
             style={styles.keyboardContainer}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -235,7 +235,7 @@ export function ModernProductModal({
                   {/* Image Section */}
                   <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                      <Feather name="image" size={18} color="#667eea" />
+                      <Feather name="image" size={18} color="#ff6b35" />
                       <Text style={styles.sectionTitle}>Slika proizvoda</Text>
                     </View>
                     
@@ -262,7 +262,7 @@ export function ModernProductModal({
                   {/* Basic Info Section */}
                   <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                      <Feather name="edit-3" size={18} color="#667eea" />
+                      <Feather name="edit-3" size={18} color="#ff6b35" />
                       <Text style={styles.sectionTitle}>Osnovni podaci</Text>
                     </View>
                     
@@ -282,8 +282,11 @@ export function ModernProductModal({
                       <TextInput
                         style={styles.textInput}
                         value={formData.price?.toString() || ''}
-                        onChangeText={(text) => onChange({ price: parseFloat(text) || 0 })}
-                        placeholder="0.00"
+                        onChangeText={(text) => {
+                          const numericValue = text.replace(/[^0-9.]/g, '');
+                          onChange({ price: numericValue === '' ? undefined : parseFloat(numericValue) });
+                        }}
+                        placeholder="Unesite cijenu"
                         keyboardType="decimal-pad"
                         placeholderTextColor="#94a3b8"
                       />
@@ -297,7 +300,7 @@ export function ModernProductModal({
                   {/* Sizes Section */}
                   <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                      <Feather name="package" size={18} color="#667eea" />
+                      <Feather name="package" size={18} color="#ff6b35" />
                       <Text style={styles.sectionTitle}>Veličine i zalihe</Text>
                     </View>
                     
@@ -313,7 +316,7 @@ export function ModernProductModal({
                           ]}>
                             {selectedSize || 'Odaberite veličinu'}
                           </Text>
-                          <Feather name="chevron-down" size={18} color="#667eea" />
+                          <Feather name="chevron-down" size={18} color="#ff6b35" />
                         </TouchableOpacity>
                         
                         <TextInput
@@ -352,7 +355,7 @@ export function ModernProductModal({
                   {/* Categories Section */}
                   <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                      <Feather name="tag" size={18} color="#667eea" />
+                      <Feather name="tag" size={18} color="#ff6b35" />
                       <Text style={styles.sectionTitle}>Kategorija</Text>
                     </View>
                     
