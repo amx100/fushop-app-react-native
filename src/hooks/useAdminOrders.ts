@@ -121,7 +121,6 @@ export function useAdminOrders() {
             .eq('size_id', sizeId);
 
           if (updateError) {
-            console.error('❌ Error updating quantity:', updateError);
             continue;
           }
 
@@ -153,9 +152,9 @@ export function useAdminOrders() {
         }
       }
 
-      console.log('✅ Manual inventory restoration completed for order:', orderId);
+  
     } catch (error) {
-      console.error('❌ Manual inventory restoration failed:', error);
+    
       throw error;
     }
   };
@@ -164,17 +163,17 @@ export function useAdminOrders() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async () => {
-      console.log('🔄 useAdminOrders: Starting to fetch orders...');
+     
       
       // Debug: proverite da li je korisnik autentifikovan
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (!user) {
-        console.log('❌ useAdminOrders: User not authenticated');
+      
         throw new Error('User not authenticated');
       }
       
-      console.log('✅ useAdminOrders: User authenticated:', user.id);
+    
 
       // Check if user is admin
       const { data: userData, error: userError } = await supabase
@@ -184,19 +183,19 @@ export function useAdminOrders() {
         .single();
 
       if (userError || !userData) {
-        console.log('❌ useAdminOrders: Error fetching user data:', userError);
+      
         throw new Error('Error fetching user data');
       }
 
-      console.log('✅ useAdminOrders: User data:', userData);
+    
 
       const isAdmin = userData.type === 'ADMIN' || userData.type === 'admin';
       if (!isAdmin) {
-        console.log('❌ useAdminOrders: User type:', userData.type, 'is not admin');
+        
         throw new Error('User is not admin');
       }
       
-      console.log('✅ useAdminOrders: User is admin, fetching orders...');
+     
 
       const { data: ordersData, error } = await supabase
         .from('order')
@@ -220,7 +219,7 @@ export function useAdminOrders() {
         throw error;
       }
 
-      console.log('✅ useAdminOrders: Fetched orders data:', ordersData?.length, 'orders');
+    
 
       if (ordersData) {
         const formattedOrders: Order[] = ordersData.map((order) => {
@@ -244,11 +243,11 @@ export function useAdminOrders() {
           };
         });
         
-        console.log('✅ useAdminOrders: Formatted orders:', formattedOrders.length);
+       
         return formattedOrders;
       }
       
-      console.log('⚠️ useAdminOrders: No orders data, returning empty array');
+     
       return [];
     },
     staleTime: 1000 * 60 * 2, // 2 minutes
@@ -259,7 +258,7 @@ export function useAdminOrders() {
 
   const updateOrderStatusMutation = useMutation({
     mutationFn: async ({ orderId, newStatus }: { orderId: number; newStatus: OrderStatus }) => {
-      console.log('🔄 Updating order status:', { orderId, newStatus });
+    
       
       // Update order status
       const { error } = await supabase
@@ -272,11 +271,11 @@ export function useAdminOrders() {
         throw error;
       }
 
-      console.log('✅ Order status updated successfully');
+      
 
       // If status is cancelled, check if trigger already restored inventory
       if (newStatus === 'cancelled') {
-        console.log('🚨 Order cancelled, checking if trigger already restored inventory...');
+        
         
         // Wait a bit for trigger to execute
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -310,13 +309,13 @@ export function useAdminOrders() {
 
               // If current quantity is higher than ordered quantity, trigger likely already restored
               if (currentData && currentData.quantity > item.quantity) {
-                console.log(`🔍 Trigger likely already restored - Product ${productId}, Size ${sizeId}: Current ${currentData.quantity} > Ordered ${item.quantity}`);
+               
                 return true;
               }
             }
             return false;
           } catch (error) {
-            console.error('❌ Error checking trigger status:', error);
+           
             return false;
           }
         };
@@ -325,7 +324,7 @@ export function useAdminOrders() {
         const triggerAlreadyRestored = await checkIfTriggerRestored(orderId);
         
         if (triggerAlreadyRestored) {
-          console.log('✅ Trigger already restored inventory, skipping manual restoration');
+       
           
           // Still need to update product statuses since trigger only restores inventory
           try {
@@ -352,13 +351,13 @@ export function useAdminOrders() {
             console.error('❌ Error updating product statuses after trigger:', error);
           }
         } else {
-          console.log('🔄 Trigger did not restore inventory, proceeding with manual restoration');
+          
           
           try {
             await restoreInventoryManually(orderId);
-            console.log('✅ Manual inventory restoration completed');
+           
           } catch (restoreError) {
-            console.error('❌ Manual inventory restoration failed:', restoreError);
+           
           }
         }
         
@@ -367,7 +366,7 @@ export function useAdminOrders() {
         await queryClient.invalidateQueries({ queryKey: ['products'] });
         await queryClient.refetchQueries({ queryKey: ['admin-products'] });
         await queryClient.refetchQueries({ queryKey: ['products'] });
-        console.log('✅ Cache invalidated and refetched for inventory refresh');
+ 
       }
 
       return { orderId, newStatus };
@@ -416,7 +415,7 @@ export function useAdminOrders() {
 
   const updateOrderStatus = async (orderId: number, newStatus: OrderStatus) => {
     try {
-      console.log('🔄 updateOrderStatus: Starting update for order:', orderId, 'to status:', newStatus);
+   
       
       // Postojeći kod za ažuriranje...
       const { error } = await supabase
@@ -426,14 +425,12 @@ export function useAdminOrders() {
 
       if (error) throw error;
 
-      console.log('✅ updateOrderStatus: Order updated successfully');
-
       // DODAJ OVO - invalidate queries nakon ažuriranja
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       
-      console.log('✅ updateOrderStatus: Queries invalidated');
+  
 
       Toast.show('Status narudžbe je uspešno ažuriran', { type: 'success' });
     } catch (error) {
