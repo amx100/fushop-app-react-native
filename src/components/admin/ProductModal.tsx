@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 import { generateSlugFromTitle } from '../../utils/utils';
+import { useSizes } from '../../hooks/useSizes';
 
 const { width, height } = Dimensions.get('window');
 
@@ -43,17 +44,6 @@ const useCategories = () => {
       const { data, error } = await supabase.from('category').select('*');
       if (error) throw error;
       return data as Category[];
-    },
-  });
-};
-
-const useSizes = () => {
-  return useQuery({
-    queryKey: ['sizes'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('sizes').select('*').order('created_at', { ascending: true });
-      if (error) throw error;
-      return data;
     },
   });
 };
@@ -126,6 +116,27 @@ export function ModernProductModal({
     onChange({ sizes: newSizes });
   };
 
+  const handleUpdateQuantity = (sizeToUpdate: string, newQuantity: number) => {
+    const updatedSizes = formData.sizes?.map(s => 
+      s.size === sizeToUpdate ? { ...s, quantity: newQuantity } : s
+    ) || [];
+    onChange({ sizes: updatedSizes });
+  };
+
+  const handleIncrementQuantity = (sizeToUpdate: string) => {
+    const currentSize = formData.sizes?.find(s => s.size === sizeToUpdate);
+    if (currentSize) {
+      handleUpdateQuantity(sizeToUpdate, currentSize.quantity + 1);
+    }
+  };
+
+  const handleDecrementQuantity = (sizeToUpdate: string) => {
+    const currentSize = formData.sizes?.find(s => s.size === sizeToUpdate);
+    if (currentSize && currentSize.quantity > 0) {
+      handleUpdateQuantity(sizeToUpdate, currentSize.quantity - 1);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.title || !formData.price || !formData.category || !formData.heroImage || !formData.sizes?.length) {
       Alert.alert('Greška', 'Molimo popunite sva obavezna polja');
@@ -194,7 +205,7 @@ export function ModernProductModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <LinearGradient colors={['#ff9a56', '#ff6b35']} style={styles.gradient}>
           <KeyboardAvoidingView 
             style={styles.keyboardContainer}
@@ -350,8 +361,38 @@ export function ModernProductModal({
                         <View key={`${size.size}-${index}`} style={styles.sizeCard}>
                           <View style={styles.sizeInfo}>
                             <Text style={styles.sizeText}>{size.size}</Text>
-                            <Text style={styles.sizeQuantity}>×{size.quantity}</Text>
                           </View>
+                          
+                          <View style={styles.quantityControls}>
+                            <TouchableOpacity 
+                              style={[styles.quantityButton, size.quantity === 0 && styles.quantityButtonDisabled]}
+                              onPress={() => handleDecrementQuantity(size.size || '')}
+                              disabled={size.quantity === 0}
+                            >
+                              <Feather name="minus" size={14} color={size.quantity === 0 ? "#94a3b8" : "#ef4444"} />
+                            </TouchableOpacity>
+                            
+                            <TextInput
+                              style={styles.quantityInputField}
+                              value={size.quantity.toString()}
+                              onChangeText={(text) => {
+                                const newQuantity = parseInt(text) || 0;
+                                if (newQuantity >= 0) {
+                                  handleUpdateQuantity(size.size || '', newQuantity);
+                                }
+                              }}
+                              keyboardType="numeric"
+                              textAlign="center"
+                            />
+                            
+                            <TouchableOpacity 
+                              style={styles.quantityButton}
+                              onPress={() => handleIncrementQuantity(size.size || '')}
+                            >
+                              <Feather name="plus" size={14} color="#10b981" />
+                            </TouchableOpacity>
+                          </View>
+                          
                           <TouchableOpacity 
                             style={styles.removeSizeButton} 
                             onPress={() => handleRemoveSize(size.size || '')}
@@ -409,7 +450,7 @@ export function ModernProductModal({
           </KeyboardAvoidingView>
         </LinearGradient>
         <SizeDropdown />
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
@@ -417,6 +458,13 @@ export function ModernProductModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   gradient: {
     flex: 1,
@@ -425,7 +473,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 16,
+    paddingTop: Platform.OS === 'ios' ? 44 : 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.1)',
@@ -634,30 +682,64 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
+    marginBottom: 8,
   },
   sizeInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    minWidth: 40,
   },
   sizeText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#1e293b',
   },
-  sizeQuantity: {
-    fontSize: 12,
-    color: '#ff6b35',
-    fontWeight: '500',
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  quantityButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  quantityButtonDisabled: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  quantityInputField: {
+    width: 50,
+    height: 28,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   removeSizeButton: {
-    padding: 2,
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
   },
   searchInput: {
     backgroundColor: '#fff',

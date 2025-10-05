@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Tables } from '../types/database.types';
+import { useSizes } from '../hooks/useSizes';
 
 interface FilterModalProps {
   isVisible: boolean;
@@ -39,6 +40,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   currentFilters,
 }) => {
   const [filters, setFilters] = useState<FilterState>(currentFilters);
+  const { data: sizes, isLoading: sizesLoading } = useSizes();
 
   const handleCategoryToggle = (categoryId: number) => {
     setFilters(prev => ({
@@ -90,7 +92,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
           <TouchableOpacity onPress={onClose}>
             <Ionicons name="close" size={24} color="#333" />
           </TouchableOpacity>
-          <Text style={styles.title}>Filters</Text>
+          <Text style={styles.title}>Filteri</Text>
           <TouchableOpacity onPress={handleReset}>
             <Text style={styles.resetText}>Resetuj</Text>
           </TouchableOpacity>
@@ -163,23 +165,27 @@ export const FilterModal: React.FC<FilterModalProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Veličine</Text>
             <View style={styles.sizesContainer}>
-              {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((size) => (
-                <TouchableOpacity
-                  key={size}
-                  style={[
-                    styles.sizeButton,
-                    filters.sizes.includes(size) && styles.sizeButtonSelected
-                  ]}
-                  onPress={() => handleSizeToggle(size)}
-                >
-                  <Text style={[
-                    styles.sizeButtonText,
-                    filters.sizes.includes(size) && styles.sizeButtonTextSelected
-                  ]}>
-                    {size}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {sizesLoading ? (
+                <Text style={styles.loadingText}>Učitavanje veličina...</Text>
+              ) : (
+                sizes?.map((size) => (
+                  <TouchableOpacity
+                    key={size.id}
+                    style={[
+                      styles.sizeButton,
+                      filters.sizes.includes(size.value) && styles.sizeButtonSelected
+                    ]}
+                    onPress={() => handleSizeToggle(size.value)}
+                  >
+                    <Text style={[
+                      styles.sizeButtonText,
+                      filters.sizes.includes(size.value) && styles.sizeButtonTextSelected
+                    ]}>
+                      {size.value}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
           </View>
 
@@ -405,5 +411,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666',
     marginHorizontal: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

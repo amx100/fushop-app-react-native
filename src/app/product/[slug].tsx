@@ -10,7 +10,9 @@ import {
   Dimensions,
   ActivityIndicator,
   StatusBar,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useToast } from 'react-native-toast-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,6 +34,7 @@ const ProductDetails = () => {
   const { items, addItem } = useCartStore();
   const router = useRouter();
   const { session } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [selectedSize, setSelectedSize] = useState<SizeType | ''>('');
   const [quantity, setQuantity] = useState<number>(0);
@@ -135,7 +138,7 @@ const ProductDetails = () => {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color="#ff6b35" />
         <Text style={styles.loading}>Učitavanje...</Text>
       </View>
     );
@@ -158,17 +161,22 @@ const ProductDetails = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <Stack.Screen options={{ title: '', headerTransparent: true }} />
 
+      {/* Status Bar Background */}
+      <View style={[styles.statusBarBackground, { height: insets.top }]} />
+
       {/* Hero Gallery */}
-      <FlatList
-        data={images}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item, index) => `img-${index}`}
-        renderItem={({ item }) => (
-          <Image source={{ uri: item }} style={styles.heroImage} />
-        )}
-      />
+      <View style={styles.heroContainer}>
+        <FlatList
+          data={images}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item, index) => `img-${index}`}
+          renderItem={({ item }) => (
+            <Image source={{ uri: item }} style={styles.heroImage} />
+          )}
+        />
+      </View>
 
       {/* Content */}
       <ScrollView style={styles.card} showsVerticalScrollIndicator={false}>
@@ -208,11 +216,11 @@ const ProductDetails = () => {
             <Text style={styles.sectionTitle}>Količina</Text>
             <View style={styles.quantityRow}>
               <TouchableOpacity style={styles.qtyBtn} onPress={handleDecreaseQuantity}>
-                <Ionicons name="remove" size={18} color="#007AFF" />
+                <Ionicons name="remove" size={18} color="#ff6b35" />
               </TouchableOpacity>
               <Text style={styles.qtyValue}>{quantity}</Text>
               <TouchableOpacity style={styles.qtyBtn} onPress={handleIncreaseQuantity}>
-                <Ionicons name="add" size={18} color="#007AFF" />
+                <Ionicons name="add" size={18} color="#ff6b35" />
               </TouchableOpacity>
             </View>
           </View>
@@ -227,7 +235,7 @@ const ProductDetails = () => {
               disabled={!selectedSize || quantity === 0}
             >
               <LinearGradient
-                colors={(!selectedSize || quantity === 0) ? ['#ccc', '#ccc'] : ['#007AFF', '#0056D6']}
+                colors={(!selectedSize || quantity === 0) ? ['#ccc', '#ccc'] : ['#ff6b35', '#ff4757']}
                 style={styles.cartGradient}
               >
                 <Text style={styles.cartText}>
@@ -240,7 +248,7 @@ const ProductDetails = () => {
               style={styles.reservationBtn}
               onPress={handleReservationPress}
             >
-              <Ionicons name="calendar-outline" size={20} color="#4a90e2" />
+              <Ionicons name="calendar-outline" size={20} color="#ff6b35" />
               <Text style={styles.reservationText}>Rezerviši</Text>
             </TouchableOpacity>
           </View>
@@ -274,7 +282,23 @@ const styles = StyleSheet.create({
   loading: { marginTop: 12, fontSize: 16, color: '#999' },
   error: { marginTop: 12, fontSize: 16, color: '#FF3B30', textAlign: 'center' },
 
-  heroImage: { width, height: height * 0.45, resizeMode: 'cover' },
+  statusBarBackground: {
+    backgroundColor: '#fff',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+
+  heroContainer: {
+    height: height * 0.5,
+  },
+  heroImage: { 
+    width, 
+    height: height * 0.5, 
+    resizeMode: 'cover' 
+  },
 
   card: {
     marginTop: -24,
@@ -289,8 +313,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  title: { fontSize: 24, fontWeight: '700', color: '#1a1a1a', marginBottom: 8 },
-  price: { fontSize: 22, fontWeight: '600', color: '#007AFF', marginBottom: 20 },
+  title: { fontSize: 24, fontWeight: '700', color: '#333', marginBottom: 8 },
+  price: { fontSize: 22, fontWeight: '600', color: '#ff6b35', marginBottom: 20 },
 
   section: { marginBottom: 20 },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 12 },
@@ -301,13 +325,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#e0e0e0',
     backgroundColor: '#fff',
   },
-  sizeSelected: { borderColor: '#007AFF', backgroundColor: '#E6F0FF' },
+  sizeSelected: { borderColor: '#ff6b35', backgroundColor: '#fff5f0' },
   sizeDisabled: { opacity: 0.4 },
   sizeText: { fontSize: 14, fontWeight: '500', color: '#333' },
-  sizeTextSelected: { color: '#007AFF' },
+  sizeTextSelected: { color: '#ff6b35' },
 
   quantityRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
   qtyBtn: {
@@ -340,11 +364,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#4a90e2',
-    backgroundColor: '#f8f9ff',
+    borderColor: '#ff6b35',
+    backgroundColor: '#fff5f0',
   },
   reservationText: {
-    color: '#4a90e2',
+    color: '#ff6b35',
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,

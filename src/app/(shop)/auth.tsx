@@ -359,7 +359,7 @@ export default function AuthPage() {
                   disabled={isLoading}
                 >
                   <LinearGradient colors={['#ff6b35', '#ff4757']} style={styles.submitButtonGradient}>
-                    {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.submitButtonText}>Sign Up</Text>}
+                    {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.submitButtonText}>Registrujte se</Text>}
                   </LinearGradient>
                 </TouchableOpacity>
               </View>

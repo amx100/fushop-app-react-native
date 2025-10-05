@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabase';
 import { Toast } from 'react-native-toast-notifications';
 import { CategoryList } from '../components/admin/CategoryList';
 import { ReservationsManagement } from '../components/admin/ReservationsManagement';
+import ProfitAnalysis from '../components/admin/ProfitAnalysis';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import SizeManagement from '../components/admin/SizeModal';
@@ -44,7 +45,7 @@ export default function AdminDashboard() {
   const { user, signOut } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'orders' | 'categories' | 'sizes' | 'reservations'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'orders' | 'categories' | 'sizes' | 'reservations' | 'profit'>('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
@@ -326,7 +327,7 @@ export default function AdminDashboard() {
   }, [activeTab, queryClient]);
 
   // Background refetch when switching tabs (silent refresh)
-  const handleTabSwitch = (tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'sizes' | 'reservations') => {
+  const handleTabSwitch = (tab: 'dashboard' | 'products' | 'orders' | 'categories' | 'sizes' | 'reservations' | 'profit') => {
   
     setActiveTab(tab);
     setIsMenuOpen(false); // Close menu when switching tabs
@@ -354,6 +355,12 @@ export default function AdminDashboard() {
       case 'reservations':
         
         // Reservations component će fetchovati svoje podatke
+        break;
+      case 'profit':
+        
+        // Profit component će koristiti postojeće podatke
+        queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+        queryClient.invalidateQueries({ queryKey: ['categories'] });
         break;
     }
   };
@@ -811,6 +818,22 @@ export default function AdminDashboard() {
                 Rezervacije
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, activeTab === 'profit' && styles.activeMenuItem]}
+              onPress={() => handleTabSwitch('profit')}
+            >
+              <View style={[styles.menuIconContainer, activeTab === 'profit' && styles.activeMenuIconContainer]}>
+                <Ionicons 
+                  name="analytics-outline" 
+                  size={20} 
+                  color={activeTab === 'profit' ? '#fff' : '#667eea'} 
+                />
+              </View>
+              <Text style={[styles.menuText, activeTab === 'profit' && styles.activeMenuText]}>
+                Profit
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -996,15 +1019,28 @@ export default function AdminDashboard() {
 
       {activeTab === 'categories' && (
         <View style={styles.categoryContainer}>
-          <TouchableOpacity 
-            style={styles.createButton}
-            onPress={() => {
-              resetCategoryForm();
-              setIsCategoryModalVisible(true);
-            }}
-          >
-            <Text style={styles.buttonText}>Create New Category</Text>
-          </TouchableOpacity>
+          <View style={styles.categoriesHeader}>
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search categories..."
+                placeholderTextColor="#9ca3af"
+              />
+            </View>
+            <TouchableOpacity 
+              style={styles.createButton}
+              onPress={() => {
+                resetCategoryForm();
+                setIsCategoryModalVisible(true);
+              }}
+            >
+              <Ionicons name="add" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Kreiraj novu kategoriju</Text>
+            </TouchableOpacity>
+          </View>
           {categoriesLoading ? (
             <CategoryListSkeleton />
           ) : (
@@ -1037,6 +1073,14 @@ export default function AdminDashboard() {
         </>
       )}
 
+      {activeTab === 'profit' && (
+        <ProfitAnalysis 
+          products={products || []} 
+          isLoading={productsLoading} 
+        />
+      )}
+
+   
       <ModernProductModal
         visible={isModalVisible}
         formData={formData}
@@ -1398,38 +1442,40 @@ const styles = StyleSheet.create({
   },
   categoryContainer: {
     flex: 1,
-    padding: 10,
+    backgroundColor: '#f8fafc',
+  },
+  categoriesHeader: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
   createButton: {
-    backgroundColor: '#2196F3',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  searchContainer: {
-    marginTop: 10,
+    backgroundColor: '#ff6b35',
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: '#fff',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    gap: 8,
+    marginTop: 12,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  searchIcon: {
+    marginRight: 12,
   },
   searchInput: {
-
     flex: 1,
     fontSize: 16,
-    marginLeft: 8,
-    color: '#333',
+    color: '#1e293b',
   },
   clearButton: {
     padding: 4,

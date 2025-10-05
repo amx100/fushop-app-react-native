@@ -52,7 +52,7 @@ const CartItemComponent = ({
       <View style={styles.itemDetails}>
         <Text style={styles.itemTitle}>{item.title}</Text>
         <Text style={styles.itemSize}>Size: {item.size}</Text>
-        <Text style={styles.itemPrice}>${(item.price || 0).toFixed(2)} RSD</Text>
+        <Text style={styles.itemPrice}>{(item.price || 0).toFixed(2)} RSD</Text>
         
         {/* Quantity Controls */}
         <View style={styles.quantityContainer}>
@@ -423,10 +423,10 @@ export default function Cart() {
         {/* Shipping Options */}
         {items.length > 0 && (
           <View style={styles.shippingContainer}>
-            <Text style={styles.shippingTitle}>Shipping Options</Text>
+            <Text style={styles.shippingTitle}>Opcije dostave</Text>
             {shippingLoading ? (
               <View style={styles.shippingLoading}>
-                <Text style={styles.shippingLoadingText}>Loading shipping options...</Text>
+                <Text style={styles.shippingLoadingText}>Učitavanje opcija dostave...</Text>
               </View>
             ) : shippingOptions.length > 0 ? (
               shippingOptions.map((option) => (
@@ -449,7 +449,7 @@ export default function Cart() {
                       <Text style={styles.shippingOptionDays}>
                         {option.delivery_time_min && option.delivery_time_max 
                           ? `${option.delivery_time_min}-${option.delivery_time_max} radnih dana`
-                          : option.description || 'Standard delivery'
+                          : option.description || 'Standardna dostava'
                         }
                       </Text>
                     </View>
@@ -474,7 +474,7 @@ export default function Cart() {
               ))
             ) : (
               <View style={styles.shippingError}>
-                <Text style={styles.shippingErrorText}>No shipping options available</Text>
+                <Text style={styles.shippingErrorText}>Nema dostava dostupnih</Text>
               </View>
             )}
           </View>

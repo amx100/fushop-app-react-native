@@ -534,7 +534,7 @@ export default function ShopIndex() {
               <Text style={styles.emptyProductsText}>
                 {searchQuery || filters.categories.length > 0 || 
                  filters.priceRange.min > 0 || filters.priceRange.max < 5000 || 
-                filters.inStock ? 'Nema proizvoda koji odgovaraju vašim filtrom' : 'Nema proizvoda dostupnih'}
+                filters.inStock ? 'Nema proizvoda koji odgovaraju vašim filterom' : 'Nema proizvoda dostupnih'}
               </Text>
               {(searchQuery || filters.categories.length > 0 || 
                 filters.priceRange.min > 0 || filters.priceRange.max < 5000 || 
@@ -556,7 +556,7 @@ export default function ShopIndex() {
                     colors={['#ff6b35', '#ff4757']}
                     style={styles.clearFiltersButtonGradient}
                   >
-                    <Text style={styles.clearFiltersButtonText}>Clear Filters</Text>
+                    <Text style={styles.clearFiltersButtonText}>Očisti filter</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               )}
