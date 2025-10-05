@@ -294,7 +294,7 @@ export default function Cart() {
 
     // If no payment method selected, show payment options
     if (!selectedPaymentMethod) {
-      Alert.alert('Greška', 'Molimo odaberite način plaćanja');
+      Alert.alert('Error', 'Please select a payment method');
       return;
     }
 
@@ -365,10 +365,29 @@ export default function Cart() {
         await setupStripePaymentSheet(total);
         
         // Open Stripe checkout
-        const success = await openStripeCheckout();
+        const result = await openStripeCheckout();
         
-        if (success) {
-          // Proceed with order creation
+        if (result === 'cancelled') {
+          // User cancelled payment - show friendly message and reset payment method
+          Alert.alert(
+            'Plaćanje otkazano',
+            'Možete nastaviti sa kupovinom ili odabrati drugi način plaćanja.',
+            [
+              {
+                text: 'OK',
+                style: 'default',
+                onPress: () => {
+                  // Reset payment method selection to allow user to choose again
+                  setSelectedPaymentMethod(null);
+                },
+              },
+            ]
+          );
+          return;
+        }
+        
+        if (result === true) {
+          // Payment successful - proceed with order creation
           await handleCheckout();
         }
       } catch (error) {
@@ -589,7 +608,7 @@ export default function Cart() {
               if (profileComplete === false) {
                 setShowCheckoutForm(true);
               } else {
-                Alert.alert('Greška', 'Molimo odaberite način plaćanja');
+                Alert.alert('Error', 'Please select a payment method');
               }
             }}
             style={[
@@ -608,7 +627,7 @@ export default function Cart() {
                 <Ionicons name="arrow-forward" size={20} color="white" />
               </View>
               <Text style={styles.checkoutButtonText}>
-                {profileComplete === false ? 'Popuni profil prvo' : 'Odaberite način plaćanja'}
+                {profileComplete === false ? 'Popunite podatke u profilu' : 'Izaberite način plaćanja'}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -620,7 +639,7 @@ export default function Cart() {
         <View style={styles.checkoutFormOverlay}>
           <View style={styles.checkoutFormContainer}>
             <View style={styles.checkoutFormHeader}>
-              <Text style={styles.checkoutFormTitle}>Podaci za dostavu</Text>
+              <Text style={styles.checkoutFormTitle}>Podaci za dostavu i plaćanje</Text>
               <TouchableOpacity
                 onPress={() => setShowCheckoutForm(false)}
                 style={styles.closeButton}
@@ -640,7 +659,7 @@ export default function Cart() {
                     <View style={[styles.radioButton, useExistingData && styles.radioButtonSelected]}>
                       {useExistingData && <View style={styles.radioButtonInner} />}
                     </View>
-                    <Text style={styles.dataOptionText}>Koristi postojeće podatke</Text>
+                    <Text style={styles.dataOptionText}>Koristi postojeće podatke u profilu</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -654,7 +673,7 @@ export default function Cart() {
                   <View style={[styles.radioButton, !useExistingData && styles.radioButtonSelected]}>
                     {!useExistingData && <View style={styles.radioButtonInner} />}
                   </View>
-                  <Text style={styles.dataOptionText}>Unesi nove podatke</Text>
+                  <Text style={styles.dataOptionText}>Unesi nove podatke u profilu</Text>
                 </TouchableOpacity>
               </View>
 
@@ -663,7 +682,7 @@ export default function Cart() {
                 <View style={styles.formFields}>
                   <View style={styles.formRow}>
                     <View style={styles.formField}>
-                      <Text style={styles.formLabel}>Ime *</Text>
+                      <Text style={styles.formLabel}>Ime</Text>
                       <TextInput
                         style={styles.formInput}
                         value={checkoutData.name}
@@ -672,7 +691,7 @@ export default function Cart() {
                       />
                     </View>
                     <View style={styles.formField}>
-                      <Text style={styles.formLabel}>Prezime *</Text>
+                      <Text style={styles.formLabel}>Prezime</Text>
                       <TextInput
                         style={styles.formInput}
                         value={checkoutData.last_name}
@@ -683,7 +702,7 @@ export default function Cart() {
                   </View>
 
                   <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Broj telefona *</Text>
+                    <Text style={styles.formLabel}>Broj telefona</Text>
                     <TextInput
                       style={styles.formInput}
                       value={checkoutData.phone}
@@ -694,7 +713,7 @@ export default function Cart() {
                   </View>
 
                   <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Adresa *</Text>
+                    <Text style={styles.formLabel}>Adresa</Text>
                     <TextInput
                       style={[styles.formInput, styles.textArea]}
                       value={checkoutData.address}
@@ -707,7 +726,7 @@ export default function Cart() {
 
                   <View style={styles.formRow}>
                     <View style={styles.formField}>
-                      <Text style={styles.formLabel}>Grad *</Text>
+                      <Text style={styles.formLabel}>Grad</Text>
                       <TextInput
                         style={styles.formInput}
                         value={checkoutData.city}
@@ -716,7 +735,7 @@ export default function Cart() {
                       />
                     </View>
                     <View style={styles.formField}>
-                      <Text style={styles.formLabel}>Poštanski broj *</Text>
+                      <Text style={styles.formLabel}>Poštanski broj</Text>
                       <TextInput
                         style={styles.formInput}
                         value={checkoutData.postal_code}
@@ -728,7 +747,7 @@ export default function Cart() {
                   </View>
 
                   <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Zemlja *</Text>
+                    <Text style={styles.formLabel}>Zemlja</Text>
                     <TextInput
                       style={styles.formInput}
                       value={checkoutData.country}
@@ -748,7 +767,7 @@ export default function Cart() {
                   colors={['#ff6b35', '#ff4757']}
                   style={styles.finalCheckoutGradient}
                 >
-                  <Text style={styles.finalCheckoutText}>Završi porudžbinu</Text>
+                  <Text style={styles.finalCheckoutText}>Završi porudžbinu i plati</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </ScrollView>

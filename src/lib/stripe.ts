@@ -55,7 +55,8 @@ export const openStripeCheckout = async () => {
       throw new Error('Network greška. Molimo pokušajte ponovo.');
     }
     if (error.code === 'Canceled') {
-      throw new Error('Plaćanje je otkazano.');
+      // Return a special value for cancellation instead of throwing
+      return 'cancelled';
     }
     throw new Error(error.message);
   }

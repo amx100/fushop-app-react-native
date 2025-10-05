@@ -33,10 +33,13 @@ export function PaymentOptions({
     try {
       await onProceedToPayment(method);
     } catch (error) {
-      Alert.alert(
-        'Greška',
-        error instanceof Error ? error.message : 'Došlo je do greške prilikom plaćanja'
-      );
+      // Don't show error alert for cancellation - it's handled in parent component
+      if (error instanceof Error && !error.message.includes('cancelled')) {
+        Alert.alert(
+          'Greška',
+          error.message || 'Došlo je do greške prilikom plaćanja'
+        );
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -44,7 +47,7 @@ export function PaymentOptions({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Način plaćanja</Text>
+      <Text style={styles.title}>Payment Method</Text>
       
       {/* Pouzećem opcija */}
       <TouchableOpacity
