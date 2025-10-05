@@ -23,6 +23,8 @@ import { CartItem, SizeType } from '../../types';
 import { router, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { Tables } from '../../types/database.types';
+import { PaymentOptions, PaymentMethod } from '../../components/shop/PaymentOptions';
+import { setupStripePaymentSheet, openStripeCheckout } from '../../lib/stripe';
 
 type CartItemProps = {
   item: CartItem;
@@ -111,6 +113,9 @@ export default function Cart() {
     country: 'Serbia'
   });
   const [useExistingData, setUseExistingData] = useState(true);
+  
+  // Payment method state
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
 
   // Animation for empty state
   const [emptyStateAnimation] = useState(new Animated.Value(0));
@@ -287,6 +292,12 @@ export default function Cart() {
       return;
     }
 
+    // If no payment method selected, show payment options
+    if (!selectedPaymentMethod) {
+      Alert.alert('Greška', 'Molimo odaberite način plaćanja');
+      return;
+    }
+
     try {
       // Save user data if it was entered in checkout form
       if (!useExistingData && session?.user?.id) {
@@ -312,8 +323,9 @@ export default function Cart() {
           quantity: item.quantity,
           size: item.size,
           size_id: item.size_id
-        }))
-      });
+        })),
+        paymentMethod: selectedPaymentMethod
+      } as any);
 
       if (!orderData?.id) {
         throw new Error('Failed to create order: No order ID returned');
@@ -328,6 +340,7 @@ export default function Cart() {
             onPress: () => {
               resetCart();
               setShowCheckoutForm(false);
+              setSelectedPaymentMethod(null);
               // Redirect to orders page to show the new order
               router.push('/(shop)/orders');
             },
@@ -342,6 +355,47 @@ export default function Cart() {
           ? error.message 
           : 'Došlo je do greške prilikom kreiranja porudžbine'
       );
+    }
+  };
+
+  const handlePaymentProceed = async (method: PaymentMethod) => {
+    if (method === 'stripe') {
+      try {
+        // Setup Stripe payment sheet
+        await setupStripePaymentSheet(total);
+        
+        // Open Stripe checkout
+        const success = await openStripeCheckout();
+        
+        if (success) {
+          // Proceed with order creation
+          await handleCheckout();
+        }
+      } catch (error) {
+        // Don't throw error for network issues, just show alert
+        if (error instanceof Error && error.message.includes('Network')) {
+          Alert.alert(
+            'Network greška',
+            'Plaćanje je možda uspešno, ali došlo je do network greške. Proverite svoju porudžbinu u sekciji "Moje porudžbine".',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Reset payment method to allow retry
+                  setSelectedPaymentMethod(null);
+                  // Check if order was actually created
+                  router.push('/(shop)/orders');
+                },
+              },
+            ]
+          );
+          return;
+        }
+        throw new Error('Stripe payment failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      }
+    } else {
+      // For cash on delivery, proceed directly
+      await handleCheckout();
     }
   };
 
@@ -480,6 +534,16 @@ export default function Cart() {
           </View>
         )}
 
+        {/* Payment Options */}
+        {items.length > 0 && (
+          <PaymentOptions
+            selectedPayment={selectedPaymentMethod}
+            onPaymentSelect={setSelectedPaymentMethod}
+            totalAmount={total}
+            onProceedToPayment={handlePaymentProceed}
+          />
+        )}
+
         {/* Order Summary */}
         {items.length > 0 && (
           <View style={styles.orderSummary}>
@@ -517,11 +581,17 @@ export default function Cart() {
         </View>
       )}
 
-      {/* Checkout Button */}
-      {items.length > 0 && (
+      {/* Checkout Button - Only show if no payment method selected */}
+      {items.length > 0 && !selectedPaymentMethod && (
         <View style={styles.checkoutContainer}>
           <TouchableOpacity
-            onPress={handleCheckout}
+            onPress={() => {
+              if (profileComplete === false) {
+                setShowCheckoutForm(true);
+              } else {
+                Alert.alert('Greška', 'Molimo odaberite način plaćanja');
+              }
+            }}
             style={[
               styles.checkoutButton,
               profileComplete === false && styles.checkoutButtonDisabled
@@ -538,7 +608,7 @@ export default function Cart() {
                 <Ionicons name="arrow-forward" size={20} color="white" />
               </View>
               <Text style={styles.checkoutButtonText}>
-                {profileComplete === false ? 'Popuni profil prvo' : 'Završi porudžbinu'}
+                {profileComplete === false ? 'Popuni profil prvo' : 'Odaberite način plaćanja'}
               </Text>
             </LinearGradient>
           </TouchableOpacity>

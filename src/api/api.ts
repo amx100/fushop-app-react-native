@@ -154,9 +154,10 @@ export const createOrder = () => {
   const auth = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    async mutationFn({ totalPrice, items }: { 
+    async mutationFn({ totalPrice, items, paymentMethod }: { 
       totalPrice: number, 
-      items: Array<{id: number, quantity: number, size: string, size_id: number}> 
+      items: Array<{id: number, quantity: number, size: string, size_id: number}>,
+      paymentMethod?: string
     }) {
       if (!auth?.user?.id) {
         throw new Error('Please log in to create an order');
@@ -175,6 +176,7 @@ export const createOrder = () => {
           slug,
           user_id: auth.user.id,
           status: 'čekanje',
+          payment_method: paymentMethod || 'cash_on_delivery',
         })
         .select('*')
         .single();

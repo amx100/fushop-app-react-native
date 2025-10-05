@@ -13,6 +13,11 @@ export default function RootLayout() {
     <ToastProvider>
       <AuthProvider>
         <QueryProvider>
+          <StripeProvider
+            publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || "pk_test_51234567890abcdef"}
+            urlScheme="fushop-app"
+            merchantIdentifier="merchant.com.fushop"
+          >
             <NotificationProvider>
               <Stack>
                 <Stack.Screen
@@ -59,6 +64,7 @@ export default function RootLayout() {
                 />
               </Stack>
             </NotificationProvider>
+          </StripeProvider>
         </QueryProvider>
       </AuthProvider>
     </ToastProvider>
